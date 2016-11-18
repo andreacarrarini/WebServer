@@ -3,5 +3,5 @@ project(WebServer)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-set(SOURCE_FILES main.c ciao.h)
+set(SOURCE_FILES main.c ciao.h convert_img.c)
 add_executable(WebServer ${SOURCE_FILES})
