@@ -88,7 +88,7 @@ main (int argc, char *argv[])
         {
 // figli
             close (sd);
-            writeLogDate2(l, serv_ind.sin_port) ;
+            writeLogDate2(serv_ind.sin_port,serv_ind.sin_addr.s_addr) ; // passo la porta e  l'indirizzo
             exit (0);
         }
 
