@@ -1,7 +1,9 @@
 //
 // Created by alessandro on 24/11/16.
 //
+#ifndef WEBSERVER_READN_WRITEN_H
 #define WEBSERVER_READN_WRITEN_H
+
 #include "utilsock.h"
 
 int readn(int fd, void *buf, size_t n) {
@@ -43,3 +45,5 @@ ssize_t writen(int fd, const void *buf, size_t n) {
     return(nleft);
 
 }
+
+#endif //WEBSERVER_READN_WRITEN_H

@@ -1,7 +1,10 @@
 //
 // Created by alessandro on 17/11/16.
 //
+
+#ifndef WEBSERVER_LOGDATE_H
 #define WEBSERVER_LOGDATE_H
+
 #define MAX 80
 #include "readn_writen.h"
 
@@ -18,7 +21,7 @@ void writeLogDate2(int porta,int ip) {
 
 
     fd = open ("log_servente", O_RDWR | O_CREAT | O_APPEND, 0644); /* apertura file di log con xor fra i flag O_RDWR, O_CREAT, O_APPEND, apre il file in lettura-scrittura, append e lo crea se serve*/
-    
+
     time(&now);
 
     tnow = localtime(&now);
@@ -41,3 +44,5 @@ void writeLogDate2(int porta,int ip) {
         exit(EXIT_FAILURE);
     }
 }
+
+#endif //WEBSERVER_LOGDATE_H
