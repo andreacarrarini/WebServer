@@ -465,6 +465,7 @@ void *map_file(char *path, off_t *size) {
     char *map;
 
     memset(&statbuf, 0, sizeof(struct stat));
+    //stat func. requires a stat struct ptr
     if (stat(path, &statbuf) != 0) {
         if (errno == ENAMETOOLONG)
             error_found("Path too long\n");
@@ -499,25 +500,42 @@ void check_and_build(char *s, char **html, int *dim) {
     sprintf(q, k, s, s, s);
 }
 
+//inserts resized images in cache
 void alloc_r_img(struct image **h, char *name) {
     struct image *k = malloc(sizeof(struct image));
     if (!k)
         error_found("Error in malloc\n");
 
-    strcpy(k -> name, name);
-    k -> img_c = NULL;
+    strcpy(k->name, name);
+    //image_c = image_cache
+    k->img_c = NULL;
 
     char p[DIM / 2];
+    //p is the path to the image
     sprintf(p, "%s%s", IMG_PATH, name);
-    k -> img_r = map_file(p, &k -> size_r);
+    k->img_r = map_file(p, &k->size_r);
 
-    if (!*h) {
+    //OLD VERSION
+
+    /*at the start *h is set to NULL by init(),
+    k is the current image to insert,
+    h is the head of the list (first element),
+    every insert is after the head like 1->i->i-1->i-2->...*/
+
+    /*the list implements the cache LRU like*/
+/*    if (!*h) {
         k -> next_img = *h;
         *h = k;
     } else {
         k -> next_img = (*h) -> next_img;
         (*h) -> next_img = k;
     }
+}*/
+
+    //NEW VERSION
+
+    k->next_img = *h;
+    *h = k;
 }
 
 void check_images(void) {
@@ -548,11 +566,13 @@ void check_images(void) {
     struct image **i = &img;
     //readdir read the sirectory stream created by opendir as a sequence of dirent structs
     while ((ent = readdir(dir)) != NULL) {
+        //DT_REG means a regular file
         if (ent -> d_type == DT_REG) {
             /*If a file is appended with a tilde~,
              * it only means that it is a backup created by a text editor
              * or similar program*/
             if ((k = strrchr(ent -> d_name, '~')) != NULL) {
+                //tilde is found
                 fprintf(stderr, "File '%s' was skipped\n", ent -> d_name);
                 continue;
             }
@@ -573,7 +593,7 @@ void check_images(void) {
             /** metti la RESIZE QUI */      //TODO resize
             // probabilmente una volta messa la RESIZE
             // non servira il 3o parametro nella alloc_r_img()
-            alloc_r_img(i, ent -> d_name);  //TODO i'm here 2
+            alloc_r_img(i, ent -> d_name);
             i = &(*i) -> next_img;
             check_and_build(ent -> d_name, &html, &dim);
         }
@@ -620,8 +640,11 @@ void init(int argc, char **argv, pthread_mutex_t *m, pthread_mutex_t *m2,
     // Default Log's path;
     char LOG_PATH[DIM],
             IMAGES_PATH[DIM];
+    //LOG_PATH is the path to log file, IMAGES_PATH the one to images
+    //./ is current dir
     strcpy(LOG_PATH, "./");
     strcpy(IMAGES_PATH, "./");
+    //an array of 2 ptr
     char *PATH[2];
     PATH[0] = LOG_PATH;
     PATH[1] = IMAGES_PATH;
