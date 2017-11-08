@@ -25,7 +25,22 @@ int MINTH = 250;
 int MAXCONN = 1500;
 int LISTENsd;
 char IMG_PATH[DIM / 2];
+// Number of cached images
+volatile int CACHE_N = -1;
+char tmp_resized[DIM2] = "/tmp/RESIZED.XXXXXX";
+// tmp files cached
+char tmp_cache[DIM2] = "/tmp/CACHE.XXXXXX";
 
+// User's command
+char *user_command = "-Enter 'q'/'Q' to close the server, "
+        "'s'/'S' to know server's state or "
+        "'f'/'F' to force Log file write";
+
+// Struct to manage cache hit
+struct cache_hit {
+    char cache_name[DIM / 2];
+    struct cache_hit *next_hit;
+};
 
 struct cache {
     // Quality factor ///OPPURE float...
@@ -51,22 +66,25 @@ struct image {
     struct image *next_img;
 } *img;
 
+// Struct which contains all variables for synchronise threads
 struct th_sync {
-    //clients array
+    struct sockaddr_in client_addr;
+    struct cache_hit *cache_hit_tail,
+            *cache_hit_head;
     int *clients;
     volatile int slot_c,
             connections,
             th_act,
-            th_act_thr;
+            th_act_thr,
+            to_kill;
     // To manage thread's number and connections
     pthread_mutex_t *mtx_t;
     // To manage cache access
     pthread_mutex_t *mtx_c;
     // To sync pthread_condition variables
     pthread_mutex_t *mtx_s_c;
-    // New event: end connection
-    pthread_cond_t *term;
-    // Array containing condition variables of all threads
+    // Array containing condition
+    // variables of all threads
     pthread_cond_t *new_c;
     // To initialize threads
     pthread_cond_t *th_start;
@@ -307,21 +325,25 @@ void usage(const char *p) {
     exit(EXIT_SUCCESS);
 }
 
-void get_opt(int argc, char **argv, char **path) {
+void get_opt(int argc, char **argv, char **path, int *perc) {
     int i = 1;
     for (; argv[i] != NULL; ++i)
         // option -h is not allowed
         if (strcmp(argv[i], "-h") == 0)
             usage(argv[0]);
 
-    char c, *e;
+    //mod_t means min thr number has been passed from line command,
+    //mod_c if max conn has been passed
+    int c; char *e; char mod_c = 0, mod_t = 0;
     struct stat statbuf;
     // Parsing the command line arguments
     // -p := port; -l := directory to store Log files;
     // -i := directory of files to send;
     // -t := minimum number of thread's pool;
     // -c := maximum number of connections.
-    while ((c = getopt(argc, argv, "p:l:i:t:c:")) != -1) {
+    // -r := percentage of resized images which belong to HTML file
+    // -n := maximum cache size
+    while ((c = getopt(argc, argv, "p:l:i:t:c:r:n:")) != -1) {
         switch (c) {
             //sets the PORT number form the command line argument
             case 'p':
@@ -392,6 +414,7 @@ void get_opt(int argc, char **argv, char **path) {
                 if (t_arg < 2)
                     error_found("Attention: due to performance problem, thread's numbers must be >= 2!\n");
                 MINTH = t_arg;
+                mod_t = 1;
                 break;
 
             //sets the number of maximum connections at the same time
@@ -403,12 +426,38 @@ void get_opt(int argc, char **argv, char **path) {
                 if (c_arg < 1)
                     error_found("Error: maximum connections' number must be > 0!");
                 MAXCONN = c_arg;
+                mod_c = 1;
+                break;
+
+            case 'r':
+                errno = 0;
+                *perc = (int) strtol(optarg, &e, 10);
+                if (errno != 0 || *e != '\0')
+                    error_found("Argument -r: Error in strtol: Invalid number\n");
+                if (*perc < 1 || *perc > 100)
+                    error_found("Argument -r: The number must be >=1 and <= 100\n");
+                break;
+
+            case 'n':
+                errno = 0;
+                int cache_size = (int) strtol(optarg, &e, 10);
+                if (errno != 0 || *e != '\0')
+                    error_found("Argument -n: Error in strtol: Invalid number\n");
+                if (cache_size)
+                    CACHE_N = cache_size;
                 break;
 
             case '?':
                 error_found("Invalid argument\n");
+
+            default:
+                error_found("Unknown error in getopt\n");
         }
     }
+    if (mod_c && !mod_t && MAXCONN < MINTH)
+        MINTH = MAXCONN;
+    else if (mod_t && !mod_c && MINTH > MAXCONN)
+        MAXCONN = MINTH;
     if (MINTH > MAXCONN)
         error_found("Error: number of maximum connections is lower then minimum number of the threads!\n");
 }
@@ -457,6 +506,8 @@ void startServer(void) {
     // listen for incoming connections
     if (listen(LISTENsd, MAXCONN) != 0)
         error_found("Error in listen\n");
+
+    fprintf(stdout, "-Server's socket correctly created with number: %d\n", PORT);
 }
 
 void *map_file(char *path, off_t *size) {
@@ -500,7 +551,7 @@ void check_and_build(char *s, char **html, int *dim) {
     sprintf(q, k, s, s, s);
 }
 
-//inserts resized images in cache
+/*//inserts resized images in cache
 void alloc_r_img(struct image **h, char *name) {
     struct image *k = malloc(sizeof(struct image));
     if (!k)
@@ -517,28 +568,65 @@ void alloc_r_img(struct image **h, char *name) {
 
     //OLD VERSION
 
-    /*at the start *h is set to NULL by init(),
+    *//*at the start *h is set to NULL by init(),
     k is the current image to insert,
     h is the head of the list (first element),
-    every insert is after the head like 1->i->i-1->i-2->...*/
+    every insert is after the head like 1->i->i-1->i-2->...*//*
 
-    /*the list implements the cache LRU like*/
-/*    if (!*h) {
+    *//*the list implements the cache LRU like*//*
+*//*    if (!*h) {
         k -> next_img = *h;
         *h = k;
     } else {
         k -> next_img = (*h) -> next_img;
         (*h) -> next_img = k;
     }
-}*/
+}*//*
 
     //NEW VERSION
 
     k->next_img = *h;
     *h = k;
+}*/
+
+// Used to fill img dynamic structure
+void alloc_r_img(struct image **h, char *path) {
+    char new_path[DIM];
+    memset(new_path, (int) '\0', DIM);
+    struct image *k = malloc(sizeof(struct image));
+    if (!k)
+        error_found("Error in malloc\n");
+    memset(k, (int) '\0', sizeof(struct image));
+
+    char *name = strrchr(path, '/');
+    if (!name) {
+        if (!strncmp(path, "favicon.ico", 11)) {
+            sprintf(new_path, "%s/%s", IMG_PATH, path);
+            strcpy(k->name, path);
+            path = new_path;
+        } else {
+            error_found("alloc_r_img: Error analyzing file");
+        }
+    } else {
+        strcpy(k->name, ++name);
+    }
+
+    struct stat statbuf;
+    get_info(&statbuf, path, 0);
+
+    k->size_r = (size_t) statbuf.st_size;
+    k->img_c = NULL;
+
+    if (!*h) {
+        k->next_img = *h;
+        *h = k;
+    } else {
+        k->next_img = (*h)->next_img;
+        (*h)->next_img = k;
+    }
 }
 
-void check_images(void) {
+void check_images(int perc) {
     DIR *dir;
     struct dirent *ent;
     char *k;
@@ -553,18 +641,25 @@ void check_images(void) {
     }
 
     int dim = 4;
-    char *html = malloc(dim * DIM);
+    char *html = malloc((size_t)dim * DIM);
     if (!html)
         error_found("Error in malloc\n");
+    memset(html, (int) '\0', (size_t) dim * DIM * sizeof(char));
 
     // writes a string that will be the html home page
     // %s page's title; %s header; %s text.
     char *h = "<!DOCTYPE html><html><head><meta charset=\"utf-8\" /><title>%s</title><style type=\"text/css\"></style><script type=\"text/javascript\"></script></head><body background=\"\"><h1>%s</h1><br><br><h3>%s</h3><hr><br>";
-    sprintf(html, h, "Madonna", "Benvenuto", "Seleziona un'immagine qui sotto");
+    sprintf(html, h, "WebServerProject", "Welcome", "Select an image below");
+    // %s image's path; %d resizing percentage
+    char *convert = "convert %s -resize %d%% %s;exit";
     size_t len_h = strlen(html), new_len_h;
 
     struct image **i = &img;
+    //input is path to source image, output to resized
+    char input[DIM], output[DIM];
+    memset(input, (int) '\0', DIM); memset(output, (int) '\0', DIM);
     //readdir read the sirectory stream created by opendir as a sequence of dirent structs
+    fprintf(stdout, "-Please wait while resizing images...\n");
     while ((ent = readdir(dir)) != NULL) {
         //DT_REG means a regular file
         if (ent -> d_type == DT_REG) {
@@ -590,10 +685,21 @@ void check_images(void) {
                 fprintf(stderr, "Warning: file '%s' may have an unsupported format\n", ent -> d_name);
             }
 
-            /** metti la RESIZE QUI */      //TODO resize
-            // probabilmente una volta messa la RESIZE
-            // non servira il 3o parametro nella alloc_r_img()
-            alloc_r_img(i, ent -> d_name);
+            //TODO change everything importare imageMagick e non utilizzare system()
+
+            char command[DIM * 2];
+            memset(command, (int) '\0', DIM * 2);
+            sprintf(input, "%s/%s", IMG_PATH, ent -> d_name);
+            sprintf(output, "%s/%s", tmp_resized, ent -> d_name);
+            sprintf(command, convert, input, perc, output);
+
+            /**
+             * NOTE: "imagemagick" package required
+            **/
+            if (system(command))
+                error_found("check_image: Error resizing images\n");
+
+            alloc_r_img(i, output);
             i = &(*i) -> next_img;
             check_and_build(ent -> d_name, &html, &dim);
         }
@@ -606,9 +712,10 @@ void check_images(void) {
     h = "</body></html>";
     if (new_len_h + DIM2 / 4 > dim * DIM) {
         ++dim;
-        html = realloc(html, dim * DIM);
+        html = realloc(html, (size_t) dim * DIM);
         if (!html)
-            error_found("Error in realloc\n");
+            error_found("Checking images: Error in realloc\n");
+        memset(html + new_len_h, (int) '\0', (size_t) dim * DIM - new_len_h);
     }
     k = html;
     k += strlen(html);
@@ -618,14 +725,21 @@ void check_images(void) {
 
     if (closedir(dir))
         error_found("Error in closedir\n");
+
+    fprintf(stdout, "-Images correctly resized in: '%s' with percentage: %d%%\n", tmp_resized, perc);
 }
 
-void map_html_error(void) {
+// Used to map in memory HTML files which respond with
+//  error 400 or error 404
+void map_html_error(char *HTML[3]) {
     char *s = "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\"><html><head><title>%s</title></head><body><h1>%s</h1><p>%s</p></body></html>\0";
-    char *mm1 = malloc(strlen(s) + 2 * DIM2);
-    char *mm2 = malloc(strlen(s) + 2 * DIM2);
+    size_t len = strlen(s) + 2 * DIM2 * sizeof(char);
+
+    char *mm1 = malloc(len);
+    char *mm2 = malloc(len);
     if (!mm1 || !mm2)
         error_found("Error in malloc\n");
+    memset(mm1, (int) '\0', len); memset(mm2, (int) '\0', len);
     sprintf(mm1, s, "404 Not Found", "404 Not Found", "The requested URL was not found on this server.");
     sprintf(mm2, s, "400 Bad Request", "Bad Request", "Your browser sent a request that this server could not understand.");
     HTML[1] = mm1;
@@ -636,48 +750,53 @@ void map_html_error(void) {
  * */
 void init(int argc, char **argv, pthread_mutex_t *m, pthread_mutex_t *m2,
           pthread_mutex_t *m3, pthread_cond_t *c, pthread_cond_t *c2,
-          pthread_cond_t *c3, struct th_sync *d) {
+          struct th_sync *d) {
     // Default Log's path;
     char LOG_PATH[DIM],
             IMAGES_PATH[DIM];
     //LOG_PATH is the path to log file, IMAGES_PATH the one to images
     //./ is current dir
-    strcpy(LOG_PATH, "./");
-    strcpy(IMAGES_PATH, "./");
+    //sets the memory with 0s
+    memset(LOG_PATH, (int) '\0', DIM);
+    memset(IMAGES_PATH, (int) '\0', DIM);
+    strcpy(LOG_PATH, ".");
+    strcpy(IMAGES_PATH, ".");
     //an array of 2 ptr
     char *PATH[2];
     PATH[0] = LOG_PATH;
     PATH[1] = IMAGES_PATH;
+    int perc = 20
 
     //get the manual config options by coomand line arg
-    get_opt(argc, argv, PATH);
+    get_opt(argc, argv, PATH, &perc);
 
     //initializes mutexes and conditions
     if (pthread_mutex_init(m, NULL) != 0 ||
         pthread_mutex_init(m2, NULL) != 0 ||
         pthread_mutex_init(m3, NULL) != 0 ||
         pthread_cond_init(c, NULL) != 0 ||
-        pthread_cond_init(c2, NULL) != 0 ||
-        pthread_cond_init(c3, NULL) != 0)
+        pthread_cond_init(c2, NULL) != 0)
         error_found("Error in pthread_mutex_init or pthread_cond_init\n");
 
     //initialize th_sync fields
-    d -> connections = d -> slot_c = 0;
+    d->connections = d->slot_c = d->to_kill = d->th_act = 0;
     d -> mtx_s_c = m;
     d -> mtx_c = m2;
     d -> mtx_t = m3;
     d -> term = c;
     d -> th_start = c2;
-    d -> full = c3;
     d -> th_act_thr = MINTH;
-    old = NULL;
     img = NULL;
 
     d -> clients = malloc(sizeof(int) * MAXCONN);
     d -> new_c = malloc(sizeof(pthread_cond_t) * MAXCONN);
-    if (d->clients == NULL || d->new_c == NULL)
-    //if (!d -> clients || !d -> new_c)
+    if (d->clients == NULL || d->new_c == NULL) {
+        //if (!d -> clients || !d -> new_c)
         error_found("Error in malloc\n");
+    } else {
+        memset(d->clients, (int) '\0', sizeof(int) * MAXCONN);
+        memset(d->new_c, (int) '\0', sizeof(pthread_cond_t) * MAXCONN);
+    }
     // -1 := slot with thread initialized; -2 := empty slot.
     int i;
     for (i = 0; i < MAXCONN; ++i) {
@@ -692,14 +811,25 @@ void init(int argc, char **argv, pthread_mutex_t *m, pthread_mutex_t *m2,
     startServer();
     LOG = open_file(LOG_PATH);
     char start_server[DIM];
+    memset(start_server, (int) '\0', DIM);
     char *k = "\t\tServer started at port:";
     sprintf(start_server, "%s %d\n", k, PORT);
     write_log(start_server);
 
-    strcpy(IMG_PATH, IMAGES_PATH);  //TODO why?
-    check_images(); // TODO i'm here 1
+    // Create tmp folder for resized and cached images
+    if (!mkdtemp(tmp_resized) || !mkdtemp(tmp_cache))
+        error_found("Error in mkdtmp\n");
 
-    map_html_error();
+    if (CACHE_N > 0) {
+        fprintf(stdout, "-Cache size: %d images; located in '%s'\n", CACHE_N, tmp_cache);
+    } else {
+        fprintf(stdout, "-Cache size: Unlimited; located in '%s'\n", tmp_cache);
+    }
+
+    strcpy(IMG_PATH, IMAGES_PATH);
+    check_images(perc);
+
+    map_html_error(HTML);
 }
 
 void catch_signal(void) {
@@ -711,11 +841,229 @@ void catch_signal(void) {
         error_found("Error in sigaction\n");
 }
 
+// Used to get mutex to access a memory
+//  area shared by multiple execution flows
+void lock(pthread_mutex_t *m) {
+    if (pthread_mutex_lock(m) != 0)
+        error_found("Error in pthread_mutex_lock\n");
+}
+
+// Used to release mutex
+void unlock(pthread_mutex_t *m) {
+    if (pthread_mutex_unlock(m) != 0)
+        error_found("Error in pthread_mutex_unlock\n");
+}
+
+// Used to remove file from file system
+void rm_link(char *path) {
+    //removes the name from FS, if it was the last occurrence file is deleted
+    if (unlink(path)) {
+        errno = 0;
+        switch (errno) {
+            case EBUSY:
+                exit_on_error("File can not be unlinked: It is being use by the system\n");
+
+            case EIO:
+                exit_on_error("File can not be unlinked: An I/O error occurred\n");
+
+            case ENAMETOOLONG:
+                exit_on_error("File can not be unlinked: Pathname was too long\n");
+
+            case ENOMEM:
+                exit_on_error("File can not be unlinked: Insufficient kernel memory was available\n");
+
+            case EPERM:
+                exit_on_error("File can not be unlinked: The file system does not allow unlinking of files\n");
+
+            case EROFS:
+                exit_on_error("File can not be unlinked: Pathname refers to a file on a read-only file system\n");
+
+            default:
+                exit_on_error("File can not be unlinked: Error in unlink\n");
+        }
+    }
+}
+
+// Used to remove directory from file system
+void rm_dir(char *directory) {
+    DIR *dir;
+    struct dirent *ent;
+
+    fprintf(stdout, "-Removing '%s'\n", directory);
+    char *verify = strrchr(directory, '/') + 1;
+    //NULL if / is not found
+    if (!verify)
+        exit_on_error("rm_dir: Unexpected error in strrchr\n");
+    verify = strrchr(directory, '.') + 1;
+    //not a thing we want to remove
+    if (!strncmp(verify, "XXXXXX", 7))
+        return;
+
+    errno = 0;
+    dir = opendir(directory);
+    if (!dir) {
+        if (errno == EACCES)
+            exit_on_error("Permission denied\n");
+        exit_on_error("rm_dir: Error in opendir\n");
+    }
+
+    while ((ent = readdir(dir)) != NULL) {
+        //deletes all files in directory
+        if (ent -> d_type == DT_REG) {
+            char buf[DIM];
+            memset(buf, (int) '\0', DIM);
+            sprintf(buf, "%s/%s", directory, ent -> d_name);
+            rm_link(buf);
+        }
+    }
+
+    if (closedir(dir))
+        exit_on_error("Error in closedir\n");
+
+    errno = 0;
+    if (rmdir(directory)) {
+        switch (errno) {
+            case EBUSY:
+                exit_on_error("Directory not removed: resource busy\n");
+
+            case ENOMEM:
+                exit_on_error("Directory not removed: Insufficient kernel memory\n");
+
+            case EROFS:
+                exit_on_error("Directory not removed: Pathname refers to a directory on a read-only file system\n");
+
+            case ENOTEMPTY:
+                exit_on_error("Directory not removed: Directory not empty!\n");
+
+            default:
+                exit_on_error("Error in rmdir\n");
+        }
+    }
+}
+
+// Used to free memory allocated from malloc/realloc functions
+void free_mem() {
+    free(HTML[0]);
+    free(HTML[1]);
+    free(HTML[2]);
+    //TODO find malloc of clients and new_c
+    free(thds.clients);
+    free(thds.new_c);
+    //CACHE_N can't be 0
+    if (CACHE_N >= 0 && thds.cache_hit_head && thds.cache_hit_tail) {
+        struct cache_hit *to_be_removed;
+        //till tail is NULL
+        while (thds.cache_hit_tail) {
+            to_be_removed = thds.cache_hit_tail;
+            thds.cache_hit_tail = thds.cache_hit_tail->next_hit;
+            free(to_be_removed);
+        }
+    }
+
+    rm_dir(tmp_resized);
+    rm_dir(tmp_cache);
+}
+
+// Thread which control stdin to recognize user's input
+void *catch_command(void *arg) {
+    struct th_sync *k = (struct th_sync *) arg;
+
+    printf("\n%s\n", user_command);
+    while (1) {
+        char cmd[2];
+        int conn, n_thds;
+        memset(cmd, (int) '\0', 2);
+        if (fscanf(stdin, "%s", cmd) != 1)
+            error_found("Error in fscanf\n");
+
+        if (strlen(cmd) != 1) {
+            printf("%s\n", user_command);
+        } else {
+            if (cmd[0] == 's' || cmd[0] == 'S') {
+                lock(thds.mtx_t);
+                conn = thds.connections; n_thds = thds.th_act;
+                unlock(thds.mtx_t);
+                fprintf(stdout, "\nConnections' number: %d\n"
+                        "Threads running: %d\n\n", conn, n_thds);
+                continue;
+            } else if (cmd[0] == 'f' || cmd[0] == 'F') {
+                errno = 0;
+                if (fflush(LOG)) {
+                    if (errno == EBADF)
+                        fprintf(stderr, "Error in fflush: Stream is not an open stream, or is not open for writing.\n");
+                    fprintf(stderr, "catch_command: Unexpected error in fflush\n");
+                }
+                fprintf(stdout, "Log file updated\n");
+                continue;
+            } else if (cmd[0] == 'q' || cmd[0] == 'Q') {
+                fprintf(stdout, "-Closing server\n");
+
+                errno = 0;
+                // Kernel may still hold some resources for a period (TIME_WAIT)
+                if (close(LISTENsd) != 0) {
+                    if (errno == EIO)
+                        error_found("I/O error occurred\n");
+                    error_found("Error in close\n");
+                }
+
+                int i = 0;
+                for (; i < MAXCONN; ++i) {
+                    if (k -> clients[i] >= 0) {
+                        //clients are sockets
+                        if (close(k -> clients[i]) != 0) {
+                            switch (errno) {
+                                case EIO:
+                                    error_found("I/O error occurred\n");
+
+                                case ENOTCONN:
+                                    error_found("The socket is not connected\n");
+
+                                case EBADF:
+                                    fprintf(stderr, "Bad file number. Probably client has disconnected\n");
+                                    break;
+
+                                default:
+                                    error_found("Error in close or shutdown\n");
+                            }
+                        }
+                    }
+                }
+                write_log("\t\tServer closed.\n\n\n");
+
+                errno = 0;
+                if (fflush(LOG)) {
+                    if (errno == EBADF)
+                        fprintf(stderr, "Error in fflush: Stream is not an open stream, or is not open for writing.\n");
+                    exit(EXIT_FAILURE);
+                }
+
+                if (fclose(LOG) != 0)
+                    error_found("Error in fclose\n");
+
+                free_mem();
+
+                exit(EXIT_SUCCESS);
+            }
+            printf("%s\n\n", user_command);
+        }
+    }
+}
+
+void create_th(void * (*routine) (void *), void *k) {
+    pthread_t tid;
+    errno = 0;
+    if (pthread_create(&tid, NULL, routine, k) != 0) {
+        if (errno == EAGAIN || errno == ENOMEM)
+            error_found("Insufficient resources to create another thread\n");
+        else
+            error_found("Error in pthread_create\n");
+    }
+}
+
 void *manage_threads(void *arg) {
     struct th_sync *k = (struct th_sync *) arg;
 
     create_th(catch_command, arg);
-    create_th(kill_th, arg);
     init_th(MINTH, manage_connection, arg);
 
     int connsocket, i = 0, j;
