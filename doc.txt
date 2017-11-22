@@ -1,0 +1,10 @@
+http_fields is used to split the http request string in 7 fields:
+/*
+ *  HTTP msg type
+ *  Reqested obj
+ *  HTTP vers
+ *  Connection
+ *  User_Agent
+ *  Accept type
+ *  Cache-Control
+ */
