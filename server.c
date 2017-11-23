@@ -12,9 +12,14 @@
 #include <dirent.h>
 #include <signal.h>
 #include <arpa/inet.h>
+#include "structs.h"
+#include "functions.h"
 
 #define DIM 512
 #define DIM2 64
+
+struct image *img;
+struct th_sync thds;
 
 // Log's file pointer
 FILE *LOG = NULL;
@@ -36,63 +41,6 @@ char tmp_cache[DIM2] = "/tmp/CACHE.XXXXXX";
 char *user_command = "-Enter 'q'/'Q' to close the server, "
         "'s'/'S' to know server's state or "
         "'f'/'F' to force Log file write";
-
-// Struct to manage cache hit
-struct cache_hit {
-    char cache_name[DIM / 2];
-    struct cache_hit *next_hit;
-};
-
-struct cache {
-    // Quality factor ///OPPURE float...
-    char q[5];
-    // Memory mapped of cached image
-    char *img_q;
-    size_t size_q;
-    struct cache *next_img_c;
-    /** se si vuole impl. anche cache su disco
-          si deve agiungere il campo "char *img_d"
-          che rappresenta il nome del file salvato
-          su disco (se esiste)
-    */
-} *old;
-
-struct image {
-    // Name of current image
-    char name[DIM2 * 2];
-    // Memory mapped of resized image
-    char *img_r;
-    size_t size_r;
-    //pointer to cached image
-    struct cache *img_c;
-    struct image *next_img;
-} *img;
-
-// Struct which contains all variables for synchronise threads
-struct th_sync {
-    struct sockaddr_in client_addr;
-    struct cache_hit *cache_hit_tail,
-            *cache_hit_head;
-    int *clients;
-    volatile int slot_c,
-            connections,
-            th_act,
-            th_act_thr,
-            to_kill;
-    // To manage thread's number and connections
-    pthread_mutex_t *mtx_thread_conn_number;
-    // To manage cache access
-    pthread_mutex_t *mtx_cache_access;
-    // To sync pthread_condition variables
-    pthread_mutex_t *mtx_sync_conditions;
-    // Array containing condition
-    // variables of all threads
-    pthread_cond_t *threads_cond_list;
-    // To initialize threads
-    pthread_cond_t *th_start;
-    // Number of maximum connection reached
-    pthread_cond_t *full;
-} thds;
 
 /*int main(int argc, char *argv[]) {
 
@@ -1454,10 +1402,16 @@ int data_to_send(int sock, char **http_fields) {
                     c = i->img_c;
                     while (c) {
                         if (c->q == quality_factor) {
-                            strcpy(name_cached_img, c->img_q);  //TODO i'm here
-                            // If an image has been accessed, move it on top of the list
-                            //  in order to keep the image with less hit in the bottom of the list
-                            if (CACHE_N >= 0 && strncmp(thds.cache_hit_head->cache_name,
+                            strcpy(name_cached_img, c->img_q);
+                            /*
+                             * If an image has been accessed, move it on top of the list
+                             * in order to keep the image with less hit in the bottom of the list
+                             * CACHE_N = -1 means we don't have cache max length;
+                             * if name of cache_head == name of img we have to cache
+                             *      the cache list is already updated
+                             */
+                            look_for_cached_img(CACHE_N, name_cached_img);  //TODO delete comment below
+                            /*if (CACHE_N >= 0 && strncmp(thds.cache_hit_head->cache_name,
                                                         name_cached_img, strlen(name_cached_img))) {
                                 struct cache_hit *prev_node, *node;
                                 prev_node = NULL;
@@ -1477,7 +1431,7 @@ int data_to_send(int sock, char **http_fields) {
                                     prev_node = node;
                                     node = node->next_hit;
                                 }
-                            }
+                            }*/
                             break;
                         }
                         c = c->next_img_c;
@@ -1491,24 +1445,28 @@ int data_to_send(int sock, char **http_fields) {
                         sprintf(path, "%s/%s", tmp_cache, name_cached_img);
 
                         if (CACHE_N > 0) {
-                            // Cache of limited size
-                            // If it has not yet reached
-                            //  the maximum cache size
-                            // %s/%s = path/name_image; %d = factor quality
+                            /*
+                             * Cache of limited size
+                             * If it has not yet reached the maximum cache size
+                             * %s/%s = path/name_image; %d = factor quality
+                             */
                             char *format = "convert %s/%s -quality %d %s/%s;exit";
                             char command[DIM];
                             memset(command, (int) '\0', DIM);
                             sprintf(command, format, IMG_PATH, p_name, quality_factor, tmp_cache, name_cached_img);
-                            if (system(command)) {
+                            if (system(command)) {      //TODO make imageMagick do this
                                 fprintf(stderr, "data_to_send: Unexpected error while refactoring image\n");
                                 free_time_http(time, http_response);
                                 unlock(thds.mtx_cache_access);
                                 return -1;
                             }
 
-                            struct stat buf;
+                            //after the resize
+                            insert_in_cache();  //TODO i'm here
+                            /*struct stat buf;
                             memset(&buf, (int) '\0', sizeof(struct stat));
                             errno = 0;
+                            //error control
                             if (stat(path, &buf) != 0) {
                                 if (errno == ENAMETOOLONG) {
                                     fprintf(stderr, "Path too long\n");
@@ -1537,6 +1495,11 @@ int data_to_send(int sock, char **http_fields) {
                                 unlock(thds.mtx_cache_access);
                                 return -1;
                             }
+
+                            *//*  TODO break in a function
+                             * filling struct cache of the relative image
+                             * and inserting the struct cache_hit in the cache list
+                             *//*
                             new_entry->q = quality_factor;
                             strcpy(new_entry->img_q, name_cached_img);
                             new_entry->size_q = (size_t) buf.st_size;
@@ -1548,16 +1511,22 @@ int data_to_send(int sock, char **http_fields) {
                             if (!thds.cache_hit_head && !thds.cache_hit_tail) {
                                 new_hit->next_hit = thds.cache_hit_head;
                                 thds.cache_hit_tail = thds.cache_hit_head = new_hit;
-                            } else {
+                            }
+                            //inserting new_hit by the head
+                            else {
                                 new_hit->next_hit = thds.cache_hit_head->next_hit;
                                 thds.cache_hit_head->next_hit = new_hit;
                                 thds.cache_hit_head = thds.cache_hit_head->next_hit;
-                            }
+                            }*/
                             --CACHE_N;
-                        } else if (!CACHE_N){
-                            // Cache full.
-                            // You have to delete an item.
-                            // You choose to delete the oldest requested element.
+
+                        }
+
+                        else if (!CACHE_N){ //TODO break in a function that removes file from cache
+                            /*
+                             * Cache full. You have to delete an item.
+                             * You choose to delete the oldest requested element.
+                             */
                             char name_to_remove[DIM / 2];
                             memset(name_to_remove, (int) '\0', DIM / 2);
                             sprintf(name_to_remove, "%s/%s", tmp_cache, thds.cache_hit_tail->cache_name);
@@ -1566,6 +1535,7 @@ int data_to_send(int sock, char **http_fields) {
                             struct dirent *ent;
                             errno = 0;
                             dir = opendir(tmp_cache);
+                            //error control
                             if (!dir) {
                                 if (errno == EACCES) {
                                     fprintf(stderr, "data_to_send: Error in opendir: Permission denied\n");
@@ -1599,6 +1569,7 @@ int data_to_send(int sock, char **http_fields) {
                                 unlock(thds.mtx_cache_access);
                                 return -1;
                             }
+                            //end function
 
                             // %s/%s = path/name_image; %d = factor quality
                             char *format = "convert %s/%s -quality %d %s/%s;exit";
