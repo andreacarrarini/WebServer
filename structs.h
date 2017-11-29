@@ -11,7 +11,7 @@
 #define DIM2 64
 
 // Struct to manage cache hit
-struct cache_hit {
+struct cache_hit {  //TODO ask Alffredo
     char cache_name[DIM / 2];
     struct cache_hit *next_hit;
 };
@@ -20,7 +20,7 @@ struct cache {
     // Quality factor ///OPPURE float...
     /*char q[5];*/
     int q;
-    // Memory mapped of cached image
+    // Name of cached image format name_quality
     char *img_q;
     size_t size_q;
     struct cache *next_img_c;

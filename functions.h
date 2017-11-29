@@ -22,9 +22,17 @@ extern char tmp_resized[DIM2];
 extern char tmp_cache[DIM2];
 extern char *usage_str;
 extern char *user_command;
+extern char *http_response;
+extern char *time;
 
 extern struct image *img;
 extern struct th_sync thds;
+
+int free_cache_slot(char *path, int quality_factor, char *name_cached_img, struct cache *c, struct image *i);
+
+int delete_image(char char *img_to_send);
+
+int insert_in_cache(char *path, int quality_factor, char *name_cached_img, struct image *i, struct cache *c);
 
 void look_for_cached_img(int CACHE, char *name_cached_image);
 

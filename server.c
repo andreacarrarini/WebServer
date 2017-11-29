@@ -1367,7 +1367,7 @@ int data_to_send(int sock, char **http_fields) {
                 /*
                  *
                  */
-                // Looking for resized image or favicon.ico
+                // Looking for resized image or favicon.ico     //TODO ask Alfredo
                 if (!strncmp(p, http_fields[1], strlen(p) - strlen(".XXXXXX")) ||
                     !(favicon = strncmp(p_name, "favicon.ico", strlen("favicon.ico")))) {
                     if (strncmp(http_fields[0], "HEAD", 4)) {
@@ -1437,6 +1437,9 @@ int data_to_send(int sock, char **http_fields) {
                         c = c->next_img_c;
                     }
 
+                    /*
+                     * If image has not been cached yet
+                     */
                     if (!c) {
                         // %s = image's name; %d = factor quality (between 1 and 99)
                         sprintf(name_cached_img, "%s_%d", p_name, quality_factor);
@@ -1462,7 +1465,8 @@ int data_to_send(int sock, char **http_fields) {
                             }
 
                             //after the resize
-                            insert_in_cache();  //TODO i'm here
+                            if (insert_in_cache(path, quality_factor, name_cached_img, i, c))
+                                fprintf(stderr, "Error in function: insert_in_cache\n");
                             /*struct stat buf;
                             memset(&buf, (int) '\0', sizeof(struct stat));
                             errno = 0;
@@ -1496,7 +1500,7 @@ int data_to_send(int sock, char **http_fields) {
                                 return -1;
                             }
 
-                            *//*  TODO break in a function
+                            *//*
                              * filling struct cache of the relative image
                              * and inserting the struct cache_hit in the cache list
                              *//*
@@ -1527,7 +1531,9 @@ int data_to_send(int sock, char **http_fields) {
                              * Cache full. You have to delete an item.
                              * You choose to delete the oldest requested element.
                              */
-                            char name_to_remove[DIM / 2];
+                            if (delete_image(img_to_send) != 0)
+                                fprintf(stderr, "error in function : delete_image\n");
+                            /*char name_to_remove[DIM / 2];
                             memset(name_to_remove, (int) '\0', DIM / 2);
                             sprintf(name_to_remove, "%s/%s", tmp_cache, thds.cache_hit_tail->cache_name);
 
@@ -1558,6 +1564,7 @@ int data_to_send(int sock, char **http_fields) {
                                     }
                                 }
                             }
+                            //if File is not found
                             if (!ent) {
                                 fprintf(stderr, "File: '%s' not removed\n", name_to_remove);
                             }
@@ -1568,10 +1575,9 @@ int data_to_send(int sock, char **http_fields) {
                                 free_time_http(time, http_response);
                                 unlock(thds.mtx_cache_access);
                                 return -1;
-                            }
-                            //end function
+                            }*/
 
-                            // %s/%s = path/name_image; %d = factor quality
+                            // %s/%s = path/name_image; %d = factor quality     //TODO make imageMagick do this
                             char *format = "convert %s/%s -quality %d %s/%s;exit";
                             char command[DIM];
                             memset(command, (int) '\0', DIM);
@@ -1583,6 +1589,13 @@ int data_to_send(int sock, char **http_fields) {
                                 return -1;
                             }
 
+                            //freeing a cache slot
+                            if (free_cache_slot(path, quality_factor, name_cached_img, i, c))
+                                fprintf(stderr, "error in function: free_cache_slot\n");
+                            if (insert_in_cache(path, quality_factor, name_cached_img, i, c))
+                                fprintf(stderr, "error in function: insert_in_cache\n");
+
+                            /*
                             struct stat buf;
                             memset(&buf, (int) '\0', sizeof(struct stat));
                             errno = 0;
@@ -1612,6 +1625,7 @@ int data_to_send(int sock, char **http_fields) {
                                 unlock(thds.mtx_cache_access);
                                 return -1;
                             }
+                            //filling cache struct of current image
                             new_entry->q = quality_factor;
                             strcpy(new_entry->img_q, name_cached_img);
                             new_entry->size_q = (size_t) buf.st_size;
@@ -1619,16 +1633,18 @@ int data_to_send(int sock, char **http_fields) {
                             i->img_c = new_entry;
                             c = i->img_c;
 
-                            // To find and delete oldest requested
-                            //  element from cache structure
                             struct image *img_ptr = img;
-                            struct cache *cache_ptr, *cache_prev = NULL;
+                            struct cache *cache_ptr;
+                            struct cache *cache_prev = NULL;
+
                             char *ext = strrchr(thds.cache_hit_tail->cache_name, '_');
+                            //ext is the "_quality" of the resized img
                             size_t dim_fin = strlen(ext);
                             char name_i[DIM / 2];
                             memset(name_i, (int) '\0', DIM / 2);
                             strncpy(name_i, thds.cache_hit_tail->cache_name,
                                     strlen(thds.cache_hit_tail->cache_name) - dim_fin);
+
                             while (img_ptr) {
                                 if (!strncmp(img_ptr->name, name_i, strlen(name_i))) {
                                     cache_ptr = img_ptr->img_c;
@@ -1677,17 +1693,20 @@ int data_to_send(int sock, char **http_fields) {
                             }
 
                             strncpy(new_hit->cache_name, name_cached_img, strlen(name_cached_img));
+
                             struct cache_hit *to_be_removed = thds.cache_hit_tail;
                             new_hit->next_hit = thds.cache_hit_head->next_hit;
                             thds.cache_hit_head->next_hit = new_hit;
                             thds.cache_hit_head = thds.cache_hit_head->next_hit;
                             thds.cache_hit_tail = thds.cache_hit_tail->next_hit;
                             free(to_be_removed);
+*/
+
                         } else {
-                            // In the case where it is not place
-                            //  a limit on the size of the cache
-                            // %s/%s = path/name_image; %d = factor quality
-                            char *format = "convert %s/%s -quality %d %s/%s;exit";
+                            /*
+                             * Unlimited cache size
+                             */
+                            char *format = "convert %s/%s -quality %d %s/%s;exit";  //TODO make imageMagick do this
                             char command[DIM];
                             memset(command, (int) '\0', DIM);
                             sprintf(command, format, IMG_PATH, p_name, quality_factor, tmp_cache, name_cached_img);
@@ -1727,6 +1746,10 @@ int data_to_send(int sock, char **http_fields) {
                                 unlock(thds.mtx_cache_access);
                                 return -1;
                             }
+
+                            /*
+                             * before this struct cache c is empty
+                             */
                             new_entry->q = quality_factor;
                             strcpy(new_entry->img_q, name_cached_img);
                             new_entry->size_q = (size_t) buf.st_size;
@@ -1738,7 +1761,7 @@ int data_to_send(int sock, char **http_fields) {
 
                     unlock(thds.mtx_cache_access);
 
-                    if (strncmp(http_fields[0], "HEAD", 4)) {
+                    if (strncmp(http_fields[0], "HEAD", 4)) {   //TODO i'm here
                         DIR *dir;
                         struct dirent *ent;
                         errno = 0;

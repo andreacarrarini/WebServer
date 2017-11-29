@@ -8,3 +8,6 @@ http_fields is used to split the http request string in 7 fields:
  *  Accept type
  *  Cache-Control
  */
+
+cached image format is: %s_%d
+%s = image's name; %d = factor quality (between 1 and 99)
