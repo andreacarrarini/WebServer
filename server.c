@@ -497,7 +497,7 @@ void *map_file(char *path, off_t *size) {
     return map;
 }
 
-void check_and_build(char *s, char **html, int *dim) {
+void check_and_build(char *s, char **html, size_t *dim) {
     char *k = "<b>%s</b><br><br><a href=\"%s\"><img src=\"RESIZED\\%s\" height=\"130\" weight=\"100\"></a><br><br><br><br>";;
 
     size_t len = strlen(*html);
@@ -766,7 +766,6 @@ void init(int argc, char **argv, pthread_mutex_t *m, pthread_mutex_t *m2,
     d -> mtx_sync_conditions = m;
     d -> mtx_cache_access = m2;
     d -> mtx_thread_conn_number = m3;
-    d -> term = c;
     d -> th_start = c2;
     d -> th_act_thr = MINTH;
     img = NULL;
@@ -1343,7 +1342,11 @@ int data_to_send(int sock, char **http_fields) {
             free_time_http(time, http_response);
             return -1;
         }
-    } else {
+    }
+    /*
+     * where the real functions begin
+     */
+    else {
         struct image *i = img;
         char *p_name;
         //if / is not found enters the if
@@ -1590,7 +1593,7 @@ int data_to_send(int sock, char **http_fields) {
                             }
 
                             //freeing a cache slot
-                            if (free_cache_slot(path, quality_factor, name_cached_img, i, c))
+                            if (free_cache_slot(i, c))
                                 fprintf(stderr, "error in function: free_cache_slot\n");
                             if (insert_in_cache(path, quality_factor, name_cached_img, i, c))
                                 fprintf(stderr, "error in function: insert_in_cache\n");
@@ -1717,6 +1720,10 @@ int data_to_send(int sock, char **http_fields) {
                                 return -1;
                             }
 
+                            if (insert_in_cache(path, quality_factor, name_cached_img, i, c))
+                                fprintf(stderr, "error in function: insert_in_cache\n");
+
+                        /*
                             struct stat buf;
                             memset(&buf, (int) '\0', sizeof(struct stat));
                             errno = 0;
@@ -1747,22 +1754,20 @@ int data_to_send(int sock, char **http_fields) {
                                 return -1;
                             }
 
-                            /*
-                             * before this struct cache c is empty
-                             */
                             new_entry->q = quality_factor;
                             strcpy(new_entry->img_q, name_cached_img);
                             new_entry->size_q = (size_t) buf.st_size;
                             new_entry->next_img_c = i->img_c;
                             i->img_c = new_entry;
                             c = i->img_c;
+*/
                         }
                     }
 
                     unlock(thds.mtx_cache_access);
 
                     if (strncmp(http_fields[0], "HEAD", 4)) {   //TODO i'm here
-                        DIR *dir;
+                    /*                        DIR *dir;
                         struct dirent *ent;
                         errno = 0;
                         dir = opendir(tmp_cache);
@@ -1777,6 +1782,7 @@ int data_to_send(int sock, char **http_fields) {
                             return -1;
                         }
 
+                        //finding the requested image
                         while ((ent = readdir(dir)) != NULL) {
                             if (ent->d_type == DT_REG) {
                                 if (!strncmp(ent->d_name, name_cached_img, strlen(name_cached_img))) {
@@ -1796,7 +1802,9 @@ int data_to_send(int sock, char **http_fields) {
                             free(img_to_send);
                             free_time_http(time, http_response);
                             return -1;
-                        }
+                        }*/
+                        if (search_file(name_cached_img, img_to_send))
+                            fprintf(stderr, "error in function: search_file\n");
                     }
                     dim = c->size_q;
                 }
@@ -1815,7 +1823,9 @@ int data_to_send(int sock, char **http_fields) {
                         memset(http_response + dim_tot, (int) '\0', (size_t) dim);
                     }
                     h = http_response;
+                    //points at the end of the header
                     h += dim_tot;
+                    //writes the image in the body of http response
                     memcpy(h, img_to_send, (size_t) dim);
                     dim_tot += dim;
                 }
@@ -1831,10 +1841,12 @@ int data_to_send(int sock, char **http_fields) {
             i = i->next_img;
         }
 
+        //if image has not been found
         if (!i) {
             sprintf(http_response, header, 404, "Not Found", time, server_name, "text/html", strlen(HTML[1]), "close");
             if (strncmp(http_fields[0], "HEAD", 4)) {
                 h = http_response;
+                //h points at the start of the body
                 h += strlen(http_response);
                 memcpy(h, HTML[1], strlen(HTML[1]));
             }
@@ -1850,6 +1862,7 @@ int data_to_send(int sock, char **http_fields) {
 }
 
 /*
+ * Every thread execute this function to deal a connection
  * Analyzes HTTP message
  */
 void respond(int sock, struct sockaddr_in client) {
@@ -1926,8 +1939,10 @@ void respond(int sock, struct sockaddr_in client) {
     } while (line_req[3] && !strncmp(line_req[3], "keep-alive", 10));
 }
 
-// This is the main threads' routine. This function is used to manage
-//  client's connection
+/*
+ * This is the routine of all threads.
+ * This function is used to manage client's connection
+ */
 void *manage_connection(void *arg) {
     //join not needed
     if (pthread_detach(pthread_self()) != 0)
@@ -1954,10 +1969,13 @@ void *manage_connection(void *arg) {
     while (1) {
         memset(&client, (int) '\0', sizeof(struct sockaddr_in));
         wait_t(k->threads_cond_list + slot_c, k->mtx_thread_conn_number);
-        // sock values:
-        // -1 -> thread ready for incoming connections
-        // -2 -> thread killed by kill_th function or thread not yet created
-        // -3 -> newly created thread
+        /*
+         * sock values:
+         *      -1 -> thread ready for incoming connections
+         *      -2 -> thread killed by kill_th function or thread not yet created
+         *      -3 -> newly created thread
+         *      >0 -> connection oriented socket file descriptor
+         */
         sock = k->clients[slot_c];
         //if clients[slot_c] socket's thread has been killed than decrease th_act counter
         if (sock < 0) {
@@ -1969,7 +1987,13 @@ void *manage_connection(void *arg) {
             unlock(k->mtx_thread_conn_number);
             break;
         }
-        //if sock >= 0
+
+        /*
+         * if sock >= 0:
+         * copies the sockaddr_in struct in client
+         * and increments the number of connection
+         * new connection has been established
+         */
         memcpy(&client, &k->client_addr, sizeof(struct sockaddr_in));
         ++k -> connections;
         /*
@@ -2019,7 +2043,7 @@ void *manage_threads(void *arg) {
     create_th(catch_command, arg);
     init_th(MINTH, manage_connection, arg);
 
-    int connsocket, i = 0, j;
+    int connsocketFD, i = 0, j;
     struct sockaddr_in client;
     socklen_t socksize = sizeof(struct sockaddr_in);
 
@@ -2033,12 +2057,12 @@ void *manage_threads(void *arg) {
 
         memset(&client, (int) '\0', socksize);
         errno = 0;
-        connsocket = accept(LISTENsd, (struct sockaddr *) &client, &socksize);
+        connsocketFD = accept(LISTENsd, (struct sockaddr *) &client, &socksize);
         memset(&k->client_addr, (int) '\0', socksize);
         memcpy(&k->client_addr, &client, socksize);
 
         lock(k -> mtx_thread_conn_number);
-        if (connsocket == -1) {
+        if (connsocketFD == -1) {
             switch (errno) {
                 case ECONNABORTED:
                     fprintf(stderr, "The connection has been aborted\n");
@@ -2083,7 +2107,7 @@ void *manage_threads(void *arg) {
         }
 
         //printf("\nNUM CONN: %d\t\tTH_ACT: %d\t\tTH_THR: %d\n\n", k -> connections, k -> th_act, k -> th_act_thr);
-        j = 1;
+        j = 1;      // TODO i'm here
         while (k -> clients[i] != -1) {
             if (j > MAXCONN) {
                 j = -1;
@@ -2096,7 +2120,7 @@ void *manage_threads(void *arg) {
             unlock(k -> mtx_thread_conn_number);
             continue;
         }
-        k -> clients[i] = connsocket;
+        k -> clients[i] = connsocketFD;
         signal_t(k -> threads_cond_list + i);
         i = (i + 1) % MAXCONN;
         unlock(k -> mtx_thread_conn_number);

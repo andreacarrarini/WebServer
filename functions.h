@@ -28,7 +28,11 @@ extern char *time;
 extern struct image *img;
 extern struct th_sync thds;
 
-int free_cache_slot(char *path, int quality_factor, char *name_cached_img, struct cache *c, struct image *i);
+void error_found(char *s);
+
+int search_file(char *name_cached_img, char *img_to_send);
+
+int free_cache_slot(struct cache *c, struct image *i);
 
 int delete_image(char char *img_to_send);
 

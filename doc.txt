@@ -11,3 +11,16 @@ http_fields is used to split the http request string in 7 fields:
 
 cached image format is: %s_%d
 %s = image's name; %d = factor quality (between 1 and 99)
+
+connsockFD values: (or clients[i])
+        -1 -> thread ready for incoming connections
+        -2 -> thread killed by kill_th function or thread not yet created
+        -3 -> newly created thread
+        >0 -> connection oriented socket file descriptor
+
+Ci sono 2 tipi di threads:
+    -Main thread (1 solo):
+        rimane in accept(), in attesa che arrivi una richiesta di connessione per la socket di ascolto;
+        quando la richiesta arriva, esce dall'accept (bloccante) e sveglia (signal) il thread figlio corrispondete,
+        questo crea un nuovo thread che lo sostituira' e si mettera' in wait al suo posto,
+        mentre lui gestira' la connessione vera e propria
