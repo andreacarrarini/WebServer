@@ -51,7 +51,7 @@ void signal_t(pthread_cond_t *c) {
 }
 
 // Used by kill_th function
-void for_kill(int n_th, struct th_sync *k) {    //TODO ask alfredo
+void for_kill(int n_th, struct th_sync *k) {
     int i, j;
 
     for (i = j = 0; i < n_th && j < MAXCONN; ++j)

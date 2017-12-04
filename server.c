@@ -1079,7 +1079,7 @@ void signal_t(pthread_cond_t *c) {
  * Used to create other threads
  * in the case in which the server load is rising
  */
-void spawn_th(struct th_sync *k) {  // TODO ask alfredo
+void spawn_th(struct th_sync *k) {
     /*
      * Threads are created dynamically in need with the number of connections.
      * If the number of connections decreases, the number of active threads
@@ -1307,7 +1307,7 @@ int data_to_send(int sock, char **http_fields) {
     memset(http_response, (int) '\0',DIM * DIM * 2);
 
     // %d status code; %s status code; %s date; %s server; %s content type; %d content's length; %s connection type
-    char *header = "HTTP/1.1 %d %s\r\nDate: %s\r\nServer: %s\r\nAccept-Ranges: bytes\r\n"   //TODO ask Alfredo
+    char *header = "HTTP/1.1 %d %s\r\nDate: %s\r\nServer: %s\r\nAccept-Ranges: bytes\r\n"
             "Content-Type: %s\r\nContent-Length: %d\r\nConnection: %s\r\n\r\n";
     char *time = get_time();
     char *server_name = "WebServerProject";  //TODO change project names
@@ -1329,7 +1329,7 @@ int data_to_send(int sock, char **http_fields) {
         return 0;
     }
 
-    if (strncmp(http_fields[1], "/", strlen(http_fields[1])) == 0) {
+    if (strncmp(http_fields[1], "/", strlen(http_fields[1])) == 0) {    // TODO watch this
         sprintf(http_response, header, 200, "OK", time, server_name, "text/html", strlen(HTML[0]), "keep-alive");
         if (strncmp(http_fields[0], "HEAD", 4)) {
             h = http_response;
@@ -1352,7 +1352,7 @@ int data_to_send(int sock, char **http_fields) {
         //if / is not found enters the if
         if (!(p_name = strrchr(http_fields[1], '/')))
             i = NULL;
-        ++p_name;   //TODO ask Alfredo
+        ++p_name;
         //make p point to /RESIZED.XXXXXX
         char *p = tmp_resized + strlen("/tmp");
 
@@ -1370,7 +1370,7 @@ int data_to_send(int sock, char **http_fields) {
                 /*
                  *
                  */
-                // Looking for resized image or favicon.ico     //TODO ask Alfredo
+                // Looking for resized image or favicon.ico
                 if (!strncmp(p, http_fields[1], strlen(p) - strlen(".XXXXXX")) ||
                     !(favicon = strncmp(p_name, "favicon.ico", strlen("favicon.ico")))) {
                     if (strncmp(http_fields[0], "HEAD", 4)) {

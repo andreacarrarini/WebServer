@@ -24,3 +24,5 @@ Ci sono 2 tipi di threads:
         quando la richiesta arriva, esce dall'accept (bloccante) e sveglia (signal) il thread figlio corrispondete,
         questo crea un nuovo thread che lo sostituira' e si mettera' in wait al suo posto,
         mentre lui gestira' la connessione vera e propria
+
+favicon.ico e' l'immagine piccola a sinistra della scheda del browser

@@ -11,11 +11,19 @@
 #define DIM2 64
 
 // Struct to manage cache hit
-struct cache_hit {  //TODO ask Alffredo
+/*
+ * lista ordinata dei filename di tutte le immagini cachate
+ * (vera e propria cache)
+ */
+struct cache_hit {
     char cache_name[DIM / 2];
     struct cache_hit *next_hit;
 };
 
+/*
+ * lista collegata di versioni della stessa immagine
+ * cachate con fattori di qualita' diversi
+ */
 struct cache {
     // Quality factor ///OPPURE float...
     /*char q[5];*/
@@ -34,8 +42,6 @@ struct cache {
 struct image {
     // Name of current image
     char name[DIM2 * 2];
-    // Memory mapped of resized image
-    char *img_r;
     size_t size_r;
     //pointer to cached image
     struct cache *img_c;
@@ -50,7 +56,9 @@ struct th_sync {
     int *clients;
     volatile int slot_c,
             connections,
+            // thread vivi
             th_act,
+            //thread treshold (soglia minima)
             th_act_thr,
             to_kill;
     // To manage thread's number and connections
