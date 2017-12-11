@@ -94,4 +94,8 @@ void check_images(int perc);
 
 void kill_th(struct th_sync *k);
 
+/*
+ * commento di prova
+ */
+
 #endif //WEBSERVER_FUNCTIONS_H
