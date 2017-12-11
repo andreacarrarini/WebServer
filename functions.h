@@ -92,4 +92,6 @@ void check_and_build(char *s, char **html, size_t *dim);
 
 void check_images(int perc);
 
+void kill_th(struct th_sync *k);
+
 #endif //WEBSERVER_FUNCTIONS_H

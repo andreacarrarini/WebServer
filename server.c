@@ -2032,11 +2032,14 @@ void *manage_connection(void *arg) {
     pthread_exit(EXIT_SUCCESS);
 }
 
-// This is the main thread which manage all incoming connections.
-// Once a client send a request to the server, this thread checks if it can
-//  process the connection or not. If so, assigns the connection management
-//  to a child thread, otherwise it waits on a pthread_cond_t condition,
-//  until the system load is not lowered.
+/*
+ * This is the main thread which manage all incoming connections.
+ * Once a client send a request to the server, this thread checks if
+ * it can process the connection or not.
+ * If so, assigns the connection management to a child thread,
+ * otherwise it waits on a pthread_cond_t condition,
+ * until the system load is not lowered.
+ * */
 void *manage_threads(void *arg) {
     struct th_sync *k = (struct th_sync *) arg;
 
