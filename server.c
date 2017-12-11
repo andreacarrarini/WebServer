@@ -14,6 +14,7 @@
 #include <arpa/inet.h>
 #include "structs.h"
 #include "functions.h"
+#include <MagickWand>
 
 #define DIM 512
 #define DIM2 64
