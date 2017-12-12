@@ -1767,7 +1767,7 @@ int data_to_send(int sock, char **http_fields) {
 
                     unlock(thds.mtx_cache_access);
 
-                    if (strncmp(http_fields[0], "HEAD", 4)) {   //TODO i'm here
+                    if (strncmp(http_fields[0], "HEAD", 4)) {
                     /*                        DIR *dir;
                         struct dirent *ent;
                         errno = 0;
@@ -1804,7 +1804,7 @@ int data_to_send(int sock, char **http_fields) {
                             free_time_http(time, http_response);
                             return -1;
                         }*/
-                        if (search_file(name_cached_img, img_to_send))
+                        if (search_file(name_cached_img, img_to_send, c))
                             fprintf(stderr, "error in function: search_file\n");
                     }
                     dim = c->size_q;

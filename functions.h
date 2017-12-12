@@ -30,7 +30,7 @@ extern struct th_sync thds;
 
 void error_found(char *s);
 
-int search_file(char *name_cached_img, char *img_to_send);
+int search_file(char *name_cached_img, char *img_to_send, struct cache *cache_ptr);
 
 int free_cache_slot(struct cache *c, struct image *i);
 
