@@ -32,10 +32,11 @@ struct cache {
     char *img_q;
     size_t size_q;
     struct cache *next_img_c;
-    /** se si vuole impl. anche cache su disco
-          si deve agiungere il campo "char *img_d"
-          che rappresenta il nome del file salvato
-          su disco (se esiste)
+    /*
+      se si vuole impl. anche cache su disco
+      si deve agiungere il campo "char *img_d"
+      che rappresenta il nome del file salvato
+      su disco (se esiste)
     */
 };
 

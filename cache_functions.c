@@ -211,6 +211,7 @@ int delete_image(char *img_to_send) {
         unlock(thds.mtx_cache_access);
         return -1;
     }
+    // TODO return 0 here??????????
 }
 
 int insert_in_cache(char *path, int quality_factor, char *name_cached_img, struct image *i, struct cache *c) {
