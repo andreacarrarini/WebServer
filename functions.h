@@ -28,6 +28,8 @@ extern char *time;
 extern struct image *img;
 extern struct th_sync thds;
 
+int resize_image(char *IMG_PATH, char *p_name, int quality, char *tmp_cache, char *name_cached_image);
+
 void error_found(char *s);
 
 int search_file(char *name_cached_img, char *img_to_send, struct cache *cache_ptr);

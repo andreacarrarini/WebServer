@@ -22,6 +22,8 @@
 struct image *img;
 struct th_sync thds;
 
+//TODO change error msg from type "function: error" to "error in function"
+
 // Log's file pointer
 FILE *LOG = NULL;
 // Pointer to html files; 1st: root, 2nd: 404, 3rd 400.
@@ -132,7 +134,8 @@ void child_job(void* arg) {
     memset((char *) &servaddr, 0, sizeof(servaddr));     //azzero l'area di memoria di servaddr
 
     servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);       *//* il server accetta richieste su ogni interfaccia di rete *//*
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);       */
+/* il server accetta richieste su ogni interfaccia di rete *//*
     servaddr.sin_port = htons(SERV_PORT);
 
     if ((bind(listensd, (struct sockaddr *) &servaddr, sizeof(servaddr))) < 0) {     *//*"assigning a name to a socket",
@@ -141,13 +144,16 @@ void child_job(void* arg) {
         exit(EXIT_FAILURE);
     }
 
-    if (listen(listensd, BACKLOG) < 0) {       *//*marco la socket identificata dal fd come passiva*//*
+    if (listen(listensd, BACKLOG) < 0) {       */
+/*marco la socket identificata dal fd come passiva*//*
         perror("errore in listen\n");
         exit(EXIT_FAILURE);
     }
 
     if (fcntl(listensd, F_SETFL, O_NONBLOCK) !=
-        0) {        *//*rendo la socket non bloccante quando in seguito uso accept*//*
+        0) {        */
+/*rendo la socket non bloccante quando in seguito uso accept*/
+/*
         perror("error making non-blocking socket\n");
         exit(EXIT_FAILURE);
     }
@@ -634,8 +640,8 @@ void check_images(int perc) {
     // %s page's title; %s header; %s text.
     char *h = "<!DOCTYPE html><html><head><meta charset=\"utf-8\" /><title>%s</title><style type=\"text/css\"></style><script type=\"text/javascript\"></script></head><body background=\"\"><h1>%s</h1><br><br><h3>%s</h3><hr><br>";
     sprintf(html, h, "WebServerProject", "Welcome", "Select an image below");
-    // %s image's path; %d resizing percentage
-    char *convert = "convert %s -resize %d%% %s;exit";
+    /*    // %s image's path; %d resizing percentage
+    char *convert = "convert %s -resize %d%% %s;exit";*/
     size_t len_h = strlen(html), new_len_h;
 
     struct image **i = &img;
@@ -669,19 +675,17 @@ void check_images(int perc) {
                 fprintf(stderr, "Warning: file '%s' may have an unsupported format\n", ent -> d_name);
             }
 
-            //TODO change everything importare imageMagick e non utilizzare system()
+            if (resize_image(IMG_PATH, ent -> d_name, perc, tmp_resized, ent -> d_name))
+                error_found("check_image: Error resizing images\n");
 
-            char command[DIM * 2];
+            /*            char command[DIM * 2];
             memset(command, (int) '\0', DIM * 2);
             sprintf(input, "%s/%s", IMG_PATH, ent -> d_name);
             sprintf(output, "%s/%s", tmp_resized, ent -> d_name);
             sprintf(command, convert, input, perc, output);
 
-            /**
-             * NOTE: "imagemagick" package required
-            **/
             if (system(command))
-                error_found("check_image: Error resizing images\n");
+                error_found("check_image: Error resizing images\n");*/
 
             alloc_r_img(i, output);
             i = &(*i) -> next_img;
@@ -1330,7 +1334,8 @@ int data_to_send(int sock, char **http_fields) {
         return 0;
     }
 
-    if (strncmp(http_fields[1], "/", strlen(http_fields[1])) == 0) {    // TODO watch this
+    //when root is requested
+    if (strncmp(http_fields[1], "/", strlen(http_fields[1])) == 0) {
         sprintf(http_response, header, 200, "OK", time, server_name, "text/html", strlen(HTML[0]), "keep-alive");
         if (strncmp(http_fields[0], "HEAD", 4)) {
             h = http_response;
@@ -1414,7 +1419,7 @@ int data_to_send(int sock, char **http_fields) {
                              * if name of cache_head == name of img we have to cache
                              *      the cache list is already updated
                              */
-                            look_for_cached_img(CACHE_N, name_cached_img);  //TODO delete comment below
+                            look_for_cached_img(CACHE_N, name_cached_img);
                             /*if (CACHE_N >= 0 && strncmp(thds.cache_hit_head->cache_name,
                                                         name_cached_img, strlen(name_cached_img))) {
                                 struct cache_hit *prev_node, *node;
@@ -1457,16 +1462,23 @@ int data_to_send(int sock, char **http_fields) {
                              * If it has not yet reached the maximum cache size
                              * %s/%s = path/name_image; %d = factor quality
                              */
-                            char *format = "convert %s/%s -quality %d %s/%s;exit";
-                            char command[DIM];
-                            memset(command, (int) '\0', DIM);
-                            sprintf(command, format, IMG_PATH, p_name, quality_factor, tmp_cache, name_cached_img);
-                            if (system(command)) {      //TODO make imageMagick do this
-                                fprintf(stderr, "data_to_send: Unexpected error while refactoring image\n");
+                            if (resize_image(IMG_PATH, p_name, quality_factor, tmp_cache, name_cached_img)) {
+                                fprintf(stderr, "Error in function: rezize_image\n");
                                 free_time_http(time, http_response);
                                 unlock(thds.mtx_cache_access);
                                 return -1;
                             }
+
+                            /*char *format = "convert %s/%s -quality %d %s/%s;exit";
+                            char command[DIM];
+                            memset(command, (int) '\0', DIM);
+                            sprintf(command, format, IMG_PATH, p_name, quality_factor, tmp_cache, name_cached_img);
+                            if (system(command)) {
+                                fprintf(stderr, "data_to_send: Unexpected error while refactoring image\n");
+                                free_time_http(time, http_response);
+                                unlock(thds.mtx_cache_access);
+                                return -1;
+                            }*/
 
                             //after the resize
                             if (insert_in_cache(path, quality_factor, name_cached_img, i, c))
@@ -1530,7 +1542,7 @@ int data_to_send(int sock, char **http_fields) {
 
                         }
 
-                        else if (!CACHE_N){ //TODO break in a function that removes file from cache
+                        else if (!CACHE_N){
                             /*
                              * Cache full. You have to delete an item.
                              * You choose to delete the oldest requested element.
@@ -1581,7 +1593,14 @@ int data_to_send(int sock, char **http_fields) {
                                 return -1;
                             }*/
 
-                            // %s/%s = path/name_image; %d = factor quality     //TODO make imageMagick do this
+                            if (resize_image(IMG_PATH, p_name, quality_factor, tmp_cache, name_cached_img)) {
+                                fprintf(stderr, "Error in function: rezize_image\n");
+                                free_time_http(time, http_response);
+                                unlock(thds.mtx_cache_access);
+                                return -1;
+                            }
+
+                            /*// %s/%s = path/name_image; %d = factor quality
                             char *format = "convert %s/%s -quality %d %s/%s;exit";
                             char command[DIM];
                             memset(command, (int) '\0', DIM);
@@ -1591,7 +1610,7 @@ int data_to_send(int sock, char **http_fields) {
                                 free_time_http(time, http_response);
                                 unlock(thds.mtx_cache_access);
                                 return -1;
-                            }
+                            }*/
 
                             //freeing a cache slot
                             if (free_cache_slot(i, c))
@@ -1710,7 +1729,13 @@ int data_to_send(int sock, char **http_fields) {
                             /*
                              * Unlimited cache size
                              */
-                            char *format = "convert %s/%s -quality %d %s/%s;exit";  //TODO make imageMagick do this
+                            if (resize_image(IMG_PATH, p_name, quality_factor, tmp_cache, name_cached_img)) {
+                                fprintf(stderr, "Error in function: rezize_image\n");
+                                free_time_http(time, http_response);
+                                unlock(thds.mtx_cache_access);
+                                return -1;
+                            }
+                            /*char *format = "convert %s/%s -quality %d %s/%s;exit";
                             char command[DIM];
                             memset(command, (int) '\0', DIM);
                             sprintf(command, format, IMG_PATH, p_name, quality_factor, tmp_cache, name_cached_img);
@@ -1719,7 +1744,7 @@ int data_to_send(int sock, char **http_fields) {
                                 free_time_http(time, http_response);
                                 unlock(thds.mtx_cache_access);
                                 return -1;
-                            }
+                            }*/
 
                             if (insert_in_cache(path, quality_factor, name_cached_img, i, c))
                                 fprintf(stderr, "error in function: insert_in_cache\n");
@@ -2111,7 +2136,7 @@ void *manage_threads(void *arg) {
         }
 
         //printf("\nNUM CONN: %d\t\tTH_ACT: %d\t\tTH_THR: %d\n\n", k -> connections, k -> th_act, k -> th_act_thr);
-        j = 1;      // TODO i'm here
+        j = 1;
         while (k -> clients[i] != -1) {
             if (j > MAXCONN) {
                 j = -1;

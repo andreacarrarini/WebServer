@@ -3,6 +3,7 @@
 //
 #include <ImageMagick-7/MagickWand/MagickWand.h>
 #include <ImageMagick-7/MagickCore/MagickCore.h>
+#include "functions.h"
 
 int resize_image(char *IMG_PATH, char *p_name, int quality, char *tmp_cache, char *name_cached_image) {
 
@@ -33,6 +34,12 @@ int resize_image(char *IMG_PATH, char *p_name, int quality, char *tmp_cache, cha
     if (!MagickWriteImage(wand, cached_complete_path)){
         fprintf(stderr, "error in MagickWriteImage function");
         return -1;
+    }
+
+    if (LOG) {
+        char *log_msg = "created new image in cache: %s\n";
+        sprintf(log_msg, name_cached_image);
+        write_on_stream(log_msg, LOG);
     }
 
     MagickWandTerminus();
