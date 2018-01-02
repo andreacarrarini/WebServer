@@ -2,8 +2,8 @@
 // Created by andrea on 23/11/17.
 //
 
-#ifndef WEBSERVER_FUNCTIONS_H
-#define WEBSERVER_FUNCTIONS_H
+#ifndef FUNCTIONS_H
+#define FUNCTIONS_H
 
 #include <stdio.h>
 #include "structs.h"
@@ -23,7 +23,7 @@ extern char tmp_cache[DIM2];
 extern char *usage_str;
 extern char *user_command;
 extern char *http_response;
-extern char *time;
+extern char *char_time;
 
 extern struct image *img;
 extern struct th_sync thds;
@@ -36,7 +36,7 @@ int search_file(char *name_cached_img, char *img_to_send, struct cache *cache_pt
 
 int free_cache_slot(struct cache *c, struct image *i);
 
-int delete_image(char char *img_to_send);
+int delete_image(char *img_to_send);
 
 int insert_in_cache(char *path, int quality_factor, char *name_cached_img, struct image *i, struct cache *c);
 

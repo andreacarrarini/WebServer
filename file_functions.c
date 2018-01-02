@@ -17,11 +17,11 @@ int search_file(char *name_cached_img, char *img_to_send, struct cache *cache_pt
     if (!dir) {
         if (errno == EACCES) {
             fprintf(stderr, "data_to_send: Error in opendir: Permission denied\n");
-            free_time_http(time, http_response);
+            free_time_http(char_time, http_response);
             return -1;
         }
         fprintf(stderr, "data_to_send: Error in opendir\n");
-        free_time_http(time, http_response);
+        free_time_http(char_time, http_response);
         return -1;
     }
 
@@ -34,7 +34,7 @@ int search_file(char *name_cached_img, char *img_to_send, struct cache *cache_pt
                         img_to_send = get_img(name_cached_img, cache_ptr->size_q, tmp_cache);
                         if (!img_to_send) {
                             fprintf(stderr, "data_to_send: Error in get_img\n");
-                            free_time_http(time, http_response);
+                            free_time_http(char_time, http_response);
                             return -1;
                         }
                         break;
@@ -48,7 +48,7 @@ int search_file(char *name_cached_img, char *img_to_send, struct cache *cache_pt
     if (closedir(dir)) {
         fprintf(stderr, "data_to_send: Error in closedir\n");
         free(img_to_send);
-        free_time_http(time, http_response);
+        free_time_http(char_time, http_response);
         return -1;
     }
 
