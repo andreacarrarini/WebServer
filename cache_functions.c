@@ -52,17 +52,17 @@ int free_cache_slot(struct cache *c, struct image *i) {
     if (stat(path, &buf) != 0) {
         if (errno == ENAMETOOLONG) {
             fprintf(stderr, "Path too long\n");
-            free_time_http(time, http_response);
+            free_time_http(char_time, http_response);
             unlock(thds.mtx_cache_access);
             return -1;
         }
         fprintf(stderr, "data_to_send: Invalid path\n");
-        free_time_http(time, http_response);
+        free_time_http(char_time, http_response);
         unlock(thds.mtx_cache_access);
         return -1;
     } else if (!S_ISREG(buf.st_mode)) {
         fprintf(stderr, "Non-regular files can not be analysed!\n");
-        free_time_http(time, http_response);
+        free_time_http(char_time, http_response);
         unlock(thds.mtx_cache_access);
         return -1;
     }
@@ -71,7 +71,7 @@ int free_cache_slot(struct cache *c, struct image *i) {
     memset(new_entry, (int) '\0', sizeof(struct cache));
     if (!new_entry) {
         fprintf(stderr, "data_to_send: Error in malloc\n");
-        free_time_http(time, http_response);
+        free_time_http(char_time, http_response);
         unlock(thds.mtx_cache_access);
         return -1;
     }
@@ -122,7 +122,7 @@ int free_cache_slot(struct cache *c, struct image *i) {
             if (!cache_ptr) {
                 fprintf(stderr, "data_to_send: Error! struct cache compromised\n"
                         "-Cache size automatically set to Unlimited\n\t\tfinding: %s\n", name_i);
-                free_time_http(time, http_response);
+                free_time_http(char_time, http_response);
                 CACHE_N = -1;
                 unlock(thds.mtx_cache_access);
                 return -1;
@@ -135,7 +135,7 @@ int free_cache_slot(struct cache *c, struct image *i) {
         CACHE_N = -1;
         fprintf(stderr, "data_to_send: Unexpected error while looking for image in struct image\n"
                 "-Cache size automatically set to Unlimited\n\t\tfinding: %s\n", name_i);
-        free_time_http(time, http_response);
+        free_time_http(char_time, http_response);
         unlock(thds.mtx_cache_access);
         return -1;
     }
@@ -144,7 +144,7 @@ int free_cache_slot(struct cache *c, struct image *i) {
     memset(new_hit, (int) '\0', sizeof(struct cache_hit));
     if (!new_hit) {
         fprintf(stderr, "data_to_send: Error in malloc\n");
-        free_time_http(time, http_response);
+        free_time_http(char_time, http_response);
         unlock(thds.mtx_cache_access);
         return -1;
     }
@@ -180,12 +180,12 @@ int delete_image(char *img_to_send) {
     if (!dir) {
         if (errno == EACCES) {
             fprintf(stderr, "data_to_send: Error in opendir: Permission denied\n");
-            free_time_http(time, http_response);
+            free_time_http(char_time, http_response);
             unlock(thds.mtx_cache_access);
             return -1;
         }
         fprintf(stderr, "data_to_send: Error in opendir\n");
-        free_time_http(time, http_response);
+        free_time_http(char_time, http_response);
         unlock(thds.mtx_cache_access);
         return -1;
     }
@@ -207,7 +207,7 @@ int delete_image(char *img_to_send) {
     if (closedir(dir)) {
         fprintf(stderr, "data_to_send: Error in closedir\n");
         free(img_to_send);
-        free_time_http(time, http_response);
+        free_time_http(char_time, http_response);
         unlock(thds.mtx_cache_access);
         return -1;
     }
@@ -222,17 +222,17 @@ int insert_in_cache(char *path, int quality_factor, char *name_cached_img, struc
     if (stat(path, &buf) != 0) {
         if (errno == ENAMETOOLONG) {
             fprintf(stderr, "Path too long\n");
-            free_time_http(time, http_response);
+            free_time_http(char_time, http_response);
             unlock(thds.mtx_cache_access);
             return -1;
         }
         fprintf(stderr, "data_to_send: Invalid path\n");
-        free_time_http(time, http_response);
+        free_time_http(char_time, http_response);
         unlock(thds.mtx_cache_access);
         return -1;
     } else if (!S_ISREG(buf.st_mode)) {
         fprintf(stderr, "Non-regular files can not be analysed!\n");
-        free_time_http(time, http_response);
+        free_time_http(char_time, http_response);
         unlock(thds.mtx_cache_access);
         return -1;
     }
@@ -241,7 +241,7 @@ int insert_in_cache(char *path, int quality_factor, char *name_cached_img, struc
     memset(new_entry, (int) '\0', sizeof(struct cache));
     if (!new_entry) {
         fprintf(stderr, "data_to_send: Error in malloc\n");
-        free_time_http(time, http_response);
+        free_time_http(char_time, http_response);
         unlock(thds.mtx_cache_access);
         return -1;
     }
@@ -263,7 +263,7 @@ int insert_in_cache(char *path, int quality_factor, char *name_cached_img, struc
         memset(new_hit, (int) '\0', sizeof(struct cache_hit));
         if (!new_hit) {
             fprintf(stderr, "data_to_send: Error in malloc\n");
-            free_time_http(time, http_response);
+            free_time_http(char_time, http_response);
             unlock(thds.mtx_cache_access);
             return -1;
         }
