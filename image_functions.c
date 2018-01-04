@@ -5,7 +5,7 @@
 #include <ImageMagick-7/MagickCore/MagickCore.h>
 #include "functions.h"
 
-int resize_image(char *IMG_PATH, char *p_name, int quality, char *tmp_cache, char *name_cached_image) {
+int resize_image(char *IMG_PATH, char *p_name, int quality, char *tmp_cache, char *name_cached_image) { //TODO prova
 
     char *image_complete_path = "%s/%s";
     sprintf(image_complete_path, IMG_PATH, p_name);

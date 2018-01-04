@@ -2,16 +2,6 @@
 // Created by andrea on 23/11/17.
 //
 
-#include <memory.h>
-/*#include <structs.h>*/
-#include <sys/stat.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <pthread.h>
-/*#include <bits/sigaction.h>*/
-#include <signal.h>
 #include "structs.h"
 #include "functions.h"
 
