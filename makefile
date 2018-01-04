@@ -2,8 +2,7 @@ CC = gcc
 CFLAGS = -c -Wall -D MAGICKCORE_HDRI_ENABLE=0 -D MAGICKCORE_QUANTUM_DEPTH=16
 LDFLAGS =
 
-SOURCES = \
-	$(wildcard *.c)
+SOURCES = server.c cache_functions.c error_functions.c file_functions.c image_functions.c readn_writen.c thread_functions.c
 
 include_imagemagick = -I /usr/local//include
 lib_magickwand = -L /usr/local/lib -l MagickWand-7.Q16HDRI
@@ -13,7 +12,7 @@ INC = $(include_imagemagick)
 LIB = $(lib_magickwand) $(lib_magickcore) -lm -lpthread
 
 OBJECTS = $(SOURCES:.c=.o)
-EXECUTABLE = progetto01
+EXECUTABLE = WebServer
 
 all: $(SOURCES) $(EXECUTABLE)
 

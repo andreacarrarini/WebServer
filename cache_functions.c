@@ -3,7 +3,7 @@
 //
 
 #include <memory.h>
-#include <structs.h>
+/*#include <structs.h>*/
 #include <sys/stat.h>
 #include <errno.h>
 #include <stdio.h>
