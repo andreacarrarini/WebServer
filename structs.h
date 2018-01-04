@@ -57,9 +57,9 @@ struct th_sync {
     int *clients;
     volatile int slot_c,
             connections,
-            // thread vivi
+    // thread vivi
             th_act,
-            //thread treshold (soglia minima)
+    //thread treshold (soglia minima)
             th_act_thr,
             to_kill;
     // To manage thread's number and connections
