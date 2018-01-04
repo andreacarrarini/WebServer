@@ -2,14 +2,6 @@
 // Created by andrea on 23/11/17.
 //
 
-#include <memory.h>
-/*#include <structs.h>*/
-#include <sys/stat.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <dirent.h>
 #include "structs.h"
 #include "functions.h"
 
@@ -45,7 +37,7 @@ void free_time_http(char *time, char *http) {   //TODO change
     free(http);
 }
 
-int free_cache_slot(struct cache *c, struct image *i) {
+int free_cache_slot(struct cache *c, struct image *i, char *char_time, char *http_response) {
     /*struct stat buf;
     memset(&buf, (int) '\0', sizeof(struct stat));
     errno = 0;
@@ -87,8 +79,11 @@ int free_cache_slot(struct cache *c, struct image *i) {
      * To find and delete oldest requested
      * element from cache structure
      */
-    struct image *img_ptr = img;
-    struct cache *cache_ptr;
+
+    /*struct image *img_ptr = img;
+    struct cache *cache_ptr;*/
+    struct image *img_ptr = i;
+    struct cache *cache_ptr = c;
     struct cache *cache_prev = NULL;
 
     char *ext = strrchr(thds.cache_hit_tail->cache_name, '_');
@@ -167,7 +162,7 @@ int free_cache_slot(struct cache *c, struct image *i) {
     return 0;
 }
 
-int delete_image(char *img_to_send) {
+int delete_image(char *img_to_send, char *char_time, char *http_response) {
     char name_to_remove[DIM / 2];
     memset(name_to_remove, (int) '\0', DIM / 2);
     sprintf(name_to_remove, "%s/%s", tmp_cache, thds.cache_hit_tail->cache_name);
@@ -211,10 +206,10 @@ int delete_image(char *img_to_send) {
         unlock(thds.mtx_cache_access);
         return -1;
     }
-    // TODO return 0 here??????????
+    return 0;
 }
 
-int insert_in_cache(char *path, int quality_factor, char *name_cached_img, struct image *i, struct cache *c) {
+int insert_in_cache(char *path, int quality_factor, char *name_cached_img, struct image *i, struct cache *c, char *char_time, char *http_response) {
     struct stat buf;
     memset(&buf, (int) '\0', sizeof(struct stat));
     errno = 0;
@@ -283,4 +278,3 @@ int insert_in_cache(char *path, int quality_factor, char *name_cached_img, struc
     }
     return 0;
 }
-

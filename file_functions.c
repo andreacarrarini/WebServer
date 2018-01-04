@@ -2,14 +2,10 @@
 // Created by andrea on 30/11/17.
 //
 
-#include <dirent.h>
-#include <errno.h>
-#include <memory.h>
-#include <stdlib.h>
 #include "structs.h"
 #include "functions.h"
 
-int search_file(char *name_cached_img, char *img_to_send, struct cache *cache_ptr) {
+int search_file(char *name_cached_img, char *img_to_send, struct cache *cache_ptr, char *char_time, char *http_response) {
     DIR *dir;
     struct dirent *ent;
     errno = 0;

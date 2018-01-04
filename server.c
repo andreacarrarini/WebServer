@@ -1,17 +1,4 @@
-#include <stdio.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <pthread.h>
-#include <stdlib.h>
-#include <netinet/in.h>
-#include <memory.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <dirent.h>
-#include <signal.h>
-#include <arpa/inet.h>
+#include <time.h>
 #include "structs.h"
 #include "functions.h"
 //#include <MagickWand>
@@ -274,13 +261,6 @@ FILE *open_file(const char *path) {
     }
 
     return f;
-}
-
-void error_found(char *s) {
-    fprintf(stderr, "%s", s);
-    if (LOG)
-        write_on_stream(s, LOG);
-    exit(EXIT_FAILURE);
 }
 
 void usage(const char *p) {
@@ -819,28 +799,6 @@ void init(int argc, char **argv, pthread_mutex_t *m, pthread_mutex_t *m2,
     map_html_error(HTML);
 }
 
-void catch_signal(void) {
-    struct sigaction sa;
-
-    sigemptyset(&sa.sa_mask);
-    sa.sa_handler = SIG_IGN;
-    if (sigaction(SIGPIPE, &sa, NULL) == -1)
-        error_found("Error in sigaction\n");
-}
-
-// Used to get mutex to access a memory
-//  area shared by multiple execution flows
-void lock(pthread_mutex_t *m) {
-    if (pthread_mutex_lock(m) != 0)
-        error_found("Error in pthread_mutex_lock\n");
-}
-
-// Used to release mutex
-void unlock(pthread_mutex_t *m) {
-    if (pthread_mutex_unlock(m) != 0)
-        error_found("Error in pthread_mutex_unlock\n");
-}
-
 // Used to remove file from file system
 void rm_link(char *path) {
     //removes the name from FS, if it was the last occurrence file is deleted
@@ -1047,12 +1005,6 @@ void create_th(void * (*routine) (void *), void *k) {
     }
 }
 
-// Used waiting for the occurrence of an event
-void wait_t(pthread_cond_t *c, pthread_mutex_t *m) {
-    if (pthread_cond_wait(c, m) != 0)
-        error_found("Error in pthread_cond_wait\n");
-}
-
 // Initialize threads
 void init_th(int threads_to_create, void *(*routine) (void *), void *arg) {
     struct th_sync *k = (struct th_sync *) arg;
@@ -1072,12 +1024,6 @@ void init_th(int threads_to_create, void *(*routine) (void *), void *arg) {
     }
     k -> th_act += threads_to_create;
     unlock(k -> mtx_sync_conditions);
-}
-
-// Used to send a signal to a thread
-void signal_t(pthread_cond_t *c) {
-    if (pthread_cond_signal(c) != 0)
-        error_found("Error in pthread_cond_signal\n");
 }
 
 /*
@@ -1156,11 +1102,6 @@ ssize_t send_http_msg(int sock_fd, char *msg_to_send, ssize_t dim) {
     }
 
     return sent;
-}
-
-void free_time_http(char *time, char *http) {   //TODO change
-    free(time);
-    free(http);
 }
 
 // Used to get image from file system
@@ -1456,7 +1397,7 @@ int data_to_send(int sock, char **http_fields) {
                             }*/
 
                             //after the resize
-                            if (insert_in_cache(path, quality_factor, name_cached_img, i, c))
+                            if (insert_in_cache(path, quality_factor, name_cached_img, i, c, time, http_response))
                                 fprintf(stderr, "Error in function: insert_in_cache\n");
                             /*struct stat buf;
                             memset(&buf, (int) '\0', sizeof(struct stat));
@@ -1522,7 +1463,7 @@ int data_to_send(int sock, char **http_fields) {
                              * Cache full. You have to delete an item.
                              * You choose to delete the oldest requested element.
                              */
-                            if (delete_image(img_to_send) != 0)
+                            if (delete_image(img_to_send, time, http_response) != 0)
                                 fprintf(stderr, "error in function : delete_image\n");
                             /*char name_to_remove[DIM / 2];
                             memset(name_to_remove, (int) '\0', DIM / 2);
@@ -1588,9 +1529,9 @@ int data_to_send(int sock, char **http_fields) {
                             }*/
 
                             //freeing a cache slot
-                            if (free_cache_slot(c, i))
+                            if (free_cache_slot(c, i, time, http_response))
                                 fprintf(stderr, "error in function: free_cache_slot\n");
-                            if (insert_in_cache(path, quality_factor, name_cached_img, i, c))
+                            if (insert_in_cache(path, quality_factor, name_cached_img, i, c, time, http_response))
                                 fprintf(stderr, "error in function: insert_in_cache\n");
 
                             /*
@@ -1721,7 +1662,7 @@ int data_to_send(int sock, char **http_fields) {
                                 return -1;
                             }*/
 
-                            if (insert_in_cache(path, quality_factor, name_cached_img, i, c))
+                            if (insert_in_cache(path, quality_factor, name_cached_img, i, c, time, http_response))
                                 fprintf(stderr, "error in function: insert_in_cache\n");
 
                         /*
@@ -1804,7 +1745,7 @@ int data_to_send(int sock, char **http_fields) {
                             free_time_http(char_time, http_response);
                             return -1;
                         }*/
-                        if (search_file(name_cached_img, img_to_send, c))
+                        if (search_file(name_cached_img, img_to_send, c, time, http_response))
                             fprintf(stderr, "error in function: search_file\n");
                     }
                     dim = c->size_q;
