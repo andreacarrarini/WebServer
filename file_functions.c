@@ -6,6 +6,7 @@
 #include "functions.h"
 
 int search_file(char *name_cached_img, char *img_to_send, struct cache *cache_ptr, char *char_time, char *http_response) {
+
     DIR *dir;
     struct dirent *ent;
     errno = 0;
