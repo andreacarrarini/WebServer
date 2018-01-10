@@ -20,7 +20,8 @@ int PORT = 8080;
 int MINTH = 250;
 int MAXCONN = 1500;
 int LISTENsd;
-char IMG_PATH[DIM / 2];
+//char IMG_PATH[DIM / 2];
+char IMG_PATH[DIM];
 // Number of cached images
 volatile int CACHE_N = -1;
 char tmp_resized[DIM2] = "/tmp/RESIZED.XXXXXX";
@@ -542,10 +543,24 @@ void alloc_r_img(struct image **h, char *name) {
 //                0 for check regular files
 void get_info(struct stat *buf, char *path, int check) {
     memset(buf, (int) '\0', sizeof(struct stat));
+    /*char mode[] = "0777";
+    int permissions;
+    permissions = strtol(mode, 0, 8);
+    errno = 0;
+    if (chmod(path, permissions)) {
+        fprintf(stderr, "get_info(chmod): errno is: %s\n", strerror(errno));
+        error_found("get_info: failed giving permission to file\n");
+    }*/
     errno = 0;
     if (stat(path, buf) != 0) {
         if (errno == ENAMETOOLONG)
             error_found("Path too long\n");
+        mode_t bits = buf->st_mode;
+        if((bits & S_IRUSR) == 0){
+            fprintf(stderr, "User doesn't have read privilages\n");
+        }
+        fprintf(stderr, "get_info: path is: %s\n", path);
+        fprintf(stderr, "get_info: errno is: %s\n", strerror(errno));
         error_found("alloc_r_img: Invalid path\n");
     }
     if (check) {
@@ -561,6 +576,7 @@ void get_info(struct stat *buf, char *path, int check) {
 
 // Used to fill img dynamic structure
 void alloc_r_img(struct image **h, char *path) {
+
     char new_path[DIM];
     memset(new_path, (int) '\0', DIM);
     struct image *k = malloc(sizeof(struct image));
@@ -582,6 +598,7 @@ void alloc_r_img(struct image **h, char *path) {
     }
 
     struct stat statbuf;
+    //fprintf(stderr, "alloc_r_img: path is: %s\n", path);
     get_info(&statbuf, path, 0);
 
     k->size_r = (size_t) statbuf.st_size;
@@ -597,6 +614,7 @@ void alloc_r_img(struct image **h, char *path) {
 }
 
 void check_images(int perc) {
+
     DIR *dir;
     struct dirent *ent;
     char *k;
@@ -667,6 +685,9 @@ void check_images(int perc) {
             if (system(command))
                 error_found("check_image: Error resizing images\n");*/
 
+            //in input there in no / because is already in IMG_PATH
+            sprintf(input, "%s%s", IMG_PATH, ent -> d_name);
+            sprintf(output, "%s/%s", tmp_resized, ent -> d_name);
             alloc_r_img(i, output);
             i = &(*i) -> next_img;
             check_and_build(ent -> d_name, &html, &dim);
@@ -787,6 +808,13 @@ void init(int argc, char **argv, pthread_mutex_t *m, pthread_mutex_t *m2,
     if (!mkdtemp(tmp_resized) || !mkdtemp(tmp_cache))
         error_found("Error in mkdtmp\n");
 
+    errno = 0;
+
+/*    if (chmod(tmp_resized, 777) || chmod(tmp_cache, 777)) {
+        //fprintf(stderr, "%d\n", errno);
+        error_found("Error giving permission to directory");
+    }*/
+
     if (CACHE_N > 0) {
         fprintf(stdout, "-Cache size: %d images; located in '%s'\n", CACHE_N, tmp_cache);
     } else {
@@ -795,7 +823,6 @@ void init(int argc, char **argv, pthread_mutex_t *m, pthread_mutex_t *m2,
 
     strcpy(IMG_PATH, IMAGES_PATH);
     check_images(perc);
-
     map_html_error(HTML);
 }
 
@@ -858,6 +885,7 @@ void rm_dir(char *directory) {
             char buf[DIM];
             memset(buf, (int) '\0', DIM);
             sprintf(buf, "%s/%s", directory, ent -> d_name);
+            fprintf(stderr, "%s\n", ent ->d_name);
             rm_link(buf);
         }
     }
