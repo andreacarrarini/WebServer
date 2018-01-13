@@ -7,6 +7,9 @@
 
 // To close the process on error
 void error_found(char *s) {
+
+    fprintf(stderr, "error_found\n");
+
     fprintf(stderr, "%s", s);
     if (LOG)
         write_on_stream(s, LOG);

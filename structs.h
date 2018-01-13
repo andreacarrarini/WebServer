@@ -29,7 +29,8 @@ struct cache {
     /*char q[5];*/
     int q;
     // Name of cached image format name_quality
-    char *img_q;
+    //char *img_q;
+    char img_q[DIM / 2];
     size_t size_q;
     struct cache *next_img_c;
     /*

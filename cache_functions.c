@@ -9,6 +9,9 @@ struct image *img;
 struct th_sync thds;
 
 void look_for_cached_img(int CACHE_N, char *name_cached_img) {
+
+    fprintf(stderr, "look_for_cached_img\n");
+
     if (CACHE_N >= 0 && strncmp(thds.cache_hit_head->cache_name,
                                 name_cached_img, strlen(name_cached_img))) {
         struct cache_hit *prev_node, *node;
@@ -33,11 +36,17 @@ void look_for_cached_img(int CACHE_N, char *name_cached_img) {
 }
 
 void free_time_http(char *time, char *http) {   //TODO change
+
+    fprintf(stderr, "free_time_http\n");
+
     free(time);
     free(http);
 }
 
 int free_cache_slot(struct cache *c, struct image *i, char *char_time, char *http_response) {
+
+    fprintf(stderr, "free_cache_slot\n");
+
     /*struct stat buf;
     memset(&buf, (int) '\0', sizeof(struct stat));
     errno = 0;
@@ -163,6 +172,9 @@ int free_cache_slot(struct cache *c, struct image *i, char *char_time, char *htt
 }
 
 int delete_image(char *img_to_send, char *char_time, char *http_response) {
+
+    fprintf(stderr, "delete_image\n");
+
     char name_to_remove[DIM / 2];
     memset(name_to_remove, (int) '\0', DIM / 2);
     sprintf(name_to_remove, "%s/%s", tmp_cache, thds.cache_hit_tail->cache_name);
@@ -209,7 +221,10 @@ int delete_image(char *img_to_send, char *char_time, char *http_response) {
     return 0;
 }
 
-int insert_in_cache(char *path, int quality_factor, char *name_cached_img, struct image *i, struct cache *c, char *char_time, char *http_response) {
+int insert_in_cache(char *path, int quality_factor, char *name_cached_img, struct image *i, char *char_time, char *http_response) {
+
+    fprintf(stderr, "insert_in_cache\n");
+
     struct stat buf;
     memset(&buf, (int) '\0', sizeof(struct stat));
     errno = 0;
@@ -232,7 +247,19 @@ int insert_in_cache(char *path, int quality_factor, char *name_cached_img, struc
         return -1;
     }
 
+    //fprintf(stderr, "insert_in_cache: 1\n");
+
     struct cache *new_entry = malloc(sizeof(struct cache));
+
+    /*new_entry -> img_q = malloc(sizeof(name_cached_img));
+    if (!new_entry -> img_q)
+        fprintf(stderr, "insert_in_cache: error in malloc\n");*/
+
+    //strcpy(new_entry -> img_q, "ciao");
+    //fprintf(stderr, "%s\n", new_entry -> img_q);
+
+    //fprintf(stderr, "insert_in_cache: 2\n");
+
     memset(new_entry, (int) '\0', sizeof(struct cache));
     if (!new_entry) {
         fprintf(stderr, "data_to_send: Error in malloc\n");
@@ -241,16 +268,40 @@ int insert_in_cache(char *path, int quality_factor, char *name_cached_img, struc
         return -1;
     }
 
+    //fprintf(stderr, "insert_in_cache: 3\n");
+
     /*
      * filling struct cache of the relative image
      * and inserting the struct cache_hit in the cache list
      */
     new_entry->q = quality_factor;
+
+    //fprintf(stderr, "insert_in_cache: 4\n");
+
     strcpy(new_entry->img_q, name_cached_img);
+
+    fprintf(stderr, "insert_in_cache: name_cached_img is: %s\n", name_cached_img);
+    fprintf(stderr, "insert_in_cache: new_entry->img_q is: %s\n", new_entry -> img_q);
+
+    //fprintf(stderr, "insert_in_cache: 5\n");
+
     new_entry->size_q = (size_t) buf.st_size;
+
+    fprintf(stderr, "insert_in_cache: size_q is: %d\n", new_entry -> size_q);
+
+    //fprintf(stderr, "insert_in_cache: 6\n");
+
     new_entry->next_img_c = i->img_c;
+
+    //fprintf(stderr, "insert_in_cache: 7\n");
+
     i->img_c = new_entry;
-    c = i->img_c;
+
+    //fprintf(stderr, "insert_in_cache: 8\n");
+
+    //c = i->img_c;
+
+    //fprintf(stderr, "insert_in_cache: 9\n");
 
     if (CACHE_N > 0) {
 
@@ -276,5 +327,8 @@ int insert_in_cache(char *path, int quality_factor, char *name_cached_img, struc
             thds.cache_hit_head = thds.cache_hit_head->next_hit;
         }
     }
+
+    //fprintf(stderr, "insert_in_cache: END\n");
+
     return 0;
 }

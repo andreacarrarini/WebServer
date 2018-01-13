@@ -52,13 +52,13 @@ int resize_image(char *IMG_PATH, char *p_name, int quality, char *tmp_cache, cha
 
 void error_found(char *s);
 
-int search_file(char *name_cached_img, char *img_to_send, struct cache *cache_ptr, char *char_time, char *http_response);
+char *search_file(struct image *image, char *name_cached_img, char *img_to_send, struct cache *cache_ptr, char *char_time, char *http_response);
 
 int free_cache_slot(struct cache *c, struct image *i, char *char_time, char *http_response);
 
 int delete_image(char *img_to_send, char *char_time, char *http_response);
 
-int insert_in_cache(char *path, int quality_factor, char *name_cached_img, struct image *i, struct cache *c, char *char_time, char *http_response);
+int insert_in_cache(char *path, int quality_factor, char *name_cached_img, struct image *i, char *char_time, char *http_response);
 
 void look_for_cached_img(int CACHE, char *name_cached_image);
 

@@ -7,6 +7,8 @@
 
 int resize_image(char *IMG_PATH, char *p_name, int quality, char *tmp_cache, char *name_cached_image) {
 
+    fprintf(stderr, "resize_image\n");
+
     char image_complete_path[DIM];
     strcpy(image_complete_path, IMG_PATH);
     strcat(image_complete_path, p_name);
@@ -87,6 +89,8 @@ int resize_image(char *IMG_PATH, char *p_name, int quality, char *tmp_cache, cha
         strcpy(log_msg, name_cached_image);
         write_on_stream(log_msg, LOG);
     }
+
+    fprintf(stderr, "resize_image: name_cached_image is: %s\n", name_cached_image);
 
     MagickWandTerminus();
 
