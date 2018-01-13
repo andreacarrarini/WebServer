@@ -199,6 +199,9 @@ void child_job(void* arg) {
 
 
 void write_on_stream(char *s, FILE *file) {
+
+    fprintf(stderr, "write_on_stream\n");
+
     size_t el;
     size_t len = strlen(s);
 
@@ -225,6 +228,9 @@ void exit_on_error(char *s) {
 }
 
 char *get_time(void) {
+
+    fprintf(stderr, "get_time\n");
+
     time_t now = time(NULL);
     char *k = malloc(sizeof(char) * DIM2);
     if (!k)
@@ -242,6 +248,9 @@ char *get_time(void) {
 }
 
 void write_log(char *s) {
+
+    fprintf(stderr, "write_log\n");
+
     char *t = get_time();
     write_on_stream(t, LOG);
     write_on_stream(s, LOG);
@@ -249,6 +258,9 @@ void write_log(char *s) {
 }
 
 FILE *open_file(const char *path) {
+
+    fprintf(stderr, "open_file\n");
+
     errno = 0;
     char s[strlen(path) + 4];
     sprintf(s, "%sLOG", path);
@@ -265,6 +277,9 @@ FILE *open_file(const char *path) {
 }
 
 void usage(const char *p) {
+
+    fprintf(stderr, "usage\n");
+
     fprintf(stderr, "Usage: %s [-l log's file path]\n"
             "\t\t\t[-p port]\n"
             "\t\t\t[-i image's path]\n"
@@ -275,6 +290,9 @@ void usage(const char *p) {
 }
 
 void get_opt(int argc, char **argv, char **path, int *perc) {
+
+    fprintf(stderr, "get_opt\n");
+
     int i = 1;
     for (; argv[i] != NULL; ++i)
         // option -h is not allowed
@@ -413,6 +431,9 @@ void get_opt(int argc, char **argv, char **path, int *perc) {
 
 // Start server
 void startServer(void) {
+
+    fprintf(stderr, "startServer\n");
+
     struct sockaddr_in server_addr;
 
     if ((LISTENsd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
@@ -459,7 +480,10 @@ void startServer(void) {
     fprintf(stdout, "-Server's socket correctly created with number: %d\n", PORT);
 }
 
-void *map_file(char *path, off_t *size) {
+/*void *map_file(char *path, off_t *size) {
+
+    fprintf(stderr, "map_file\n");
+
     struct stat statbuf;
     int fd;
     char *map;
@@ -483,9 +507,12 @@ void *map_file(char *path, off_t *size) {
         error_found("Error in mmap\n");
 
     return map;
-}
+}*/
 
 void check_and_build(char *s, char **html, size_t *dim) {
+
+    fprintf(stderr, "check_and_build\n");
+
     char *k = "<b>%s</b><br><br><a href=\"%s\"><img src=\"RESIZED\\%s\" height=\"130\" weight=\"100\"></a><br><br><br><br>";;
 
     size_t len = strlen(*html);
@@ -500,48 +527,13 @@ void check_and_build(char *s, char **html, size_t *dim) {
     sprintf(q, k, s, s, s);
 }
 
-/*//inserts resized images in cache
-void alloc_r_img(struct image **h, char *name) {
-    struct image *k = malloc(sizeof(struct image));
-    if (!k)
-        error_found("Error in malloc\n");
-
-    strcpy(k->name, name);
-    //image_c = image_cache
-    k->img_c = NULL;
-
-    char p[DIM / 2];
-    //p is the path to the image
-    sprintf(p, "%s%s", IMG_PATH, name);
-    k->img_r = map_file(p, &k->size_r);
-
-    //OLD VERSION
-
-    *//*at the start *h is set to NULL by init(),
-    k is the current image to insert,
-    h is the head of the list (first element),
-    every insert is after the head like 1->i->i-1->i-2->...*//*
-
-    *//*the list implements the cache LRU like*//*
-*//*    if (!*h) {
-        k -> next_img = *h;
-        *h = k;
-    } else {
-        k -> next_img = (*h) -> next_img;
-        (*h) -> next_img = k;
-    }
-}*//*
-
-    //NEW VERSION
-
-    k->next_img = *h;
-    *h = k;
-}*/
-
 // Used to get information from a file on the file system
 //  check values: 1 for check directory
 //                0 for check regular files
 void get_info(struct stat *buf, char *path, int check) {
+
+    fprintf(stderr, "get_info\n");
+
     memset(buf, (int) '\0', sizeof(struct stat));
     /*char mode[] = "0777";
     int permissions;
@@ -576,6 +568,8 @@ void get_info(struct stat *buf, char *path, int check) {
 
 // Used to fill img dynamic structure
 void alloc_r_img(struct image **h, char *path) {
+
+    fprintf(stderr, "alloc_r_img\n");
 
     char new_path[DIM];
     memset(new_path, (int) '\0', DIM);
@@ -614,6 +608,8 @@ void alloc_r_img(struct image **h, char *path) {
 }
 
 void check_images(int perc) {
+
+    fprintf(stderr, "check_images\n");
 
     DIR *dir;
     struct dirent *ent;
@@ -721,6 +717,9 @@ void check_images(int perc) {
 // Used to map in memory HTML files which respond with
 //  error 400 or error 404
 void map_html_error(char *HTML[3]) {
+
+    fprintf(stderr, "map_html_error\n");
+
     char *s = "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\"><html><head><title>%s</title></head><body><h1>%s</h1><p>%s</p></body></html>\0";
     size_t len = strlen(s) + 2 * DIM2 * sizeof(char);
 
@@ -738,8 +737,11 @@ void map_html_error(char *HTML[3]) {
 /*takes 9 arguments: argc, argv, 3 mutex, 3 condition and a pointer toa th_sync struct.
  * */
 void init(int argc, char **argv, pthread_mutex_t *m, pthread_mutex_t *m2,
-          pthread_mutex_t *m3, pthread_cond_t *c, pthread_cond_t *c2,
+          pthread_mutex_t *m3, pthread_cond_t *th_start, pthread_cond_t *full,
           struct th_sync *d) {
+
+    fprintf(stderr, "init\n");
+
     // Default Log's path;
     char LOG_PATH[DIM],
             IMAGES_PATH[DIM];
@@ -763,8 +765,8 @@ void init(int argc, char **argv, pthread_mutex_t *m, pthread_mutex_t *m2,
     if (pthread_mutex_init(m, NULL) != 0 ||
         pthread_mutex_init(m2, NULL) != 0 ||
         pthread_mutex_init(m3, NULL) != 0 ||
-        pthread_cond_init(c, NULL) != 0 ||
-        pthread_cond_init(c2, NULL) != 0)
+        pthread_cond_init(th_start, NULL) != 0 ||
+        pthread_cond_init(full, NULL) != 0)
         error_found("Error in pthread_mutex_init or pthread_cond_init\n");
 
     //initialize th_sync fields
@@ -772,8 +774,9 @@ void init(int argc, char **argv, pthread_mutex_t *m, pthread_mutex_t *m2,
     d -> mtx_sync_conditions = m;
     d -> mtx_cache_access = m2;
     d -> mtx_thread_conn_number = m3;
-    d -> th_start = c2;
+    d -> th_start = th_start;
     d -> th_act_thr = MINTH;
+    d -> full = full;
     img = NULL;
 
     d -> clients = malloc(sizeof(int) * MAXCONN);
@@ -828,6 +831,9 @@ void init(int argc, char **argv, pthread_mutex_t *m, pthread_mutex_t *m2,
 
 // Used to remove file from file system
 void rm_link(char *path) {
+
+    fprintf(stderr, "rm_link\n");
+
     //removes the name from FS, if it was the last occurrence file is deleted
     if (unlink(path)) {
         errno = 0;
@@ -858,6 +864,9 @@ void rm_link(char *path) {
 
 // Used to remove directory from file system
 void rm_dir(char *directory) {
+
+    fprintf(stderr, "rm_dir\n");
+
     DIR *dir;
     struct dirent *ent;
 
@@ -916,6 +925,9 @@ void rm_dir(char *directory) {
 
 // Used to free memory allocated from malloc/realloc functions
 void free_mem() {
+
+    fprintf(stderr, "free_mem\n");
+
     free(HTML[0]);
     free(HTML[1]);
     free(HTML[2]);
@@ -939,6 +951,9 @@ void free_mem() {
 
 // Thread which control stdin to recognize user's input
 void *catch_command(void *arg) {
+
+    fprintf(stderr, "catch_command\n");
+
     struct th_sync *k = (struct th_sync *) arg;
 
     printf("\n%s\n", user_command);
@@ -1023,6 +1038,9 @@ void *catch_command(void *arg) {
 }
 
 void create_th(void * (*routine) (void *), void *k) {
+
+    fprintf(stderr, "create_th\n");
+
     pthread_t tid;
     errno = 0;
     if (pthread_create(&tid, NULL, routine, k) != 0) {
@@ -1035,6 +1053,9 @@ void create_th(void * (*routine) (void *), void *k) {
 
 // Initialize threads
 void init_th(int threads_to_create, void *(*routine) (void *), void *arg) {
+
+    fprintf(stderr, "init_th\n");
+
     struct th_sync *k = (struct th_sync *) arg;
 
     int i, j;
@@ -1065,6 +1086,9 @@ void init_th(int threads_to_create, void *(*routine) (void *), void *arg) {
  *  Cache-Control
  */
 void split_str(char *http_req_buf, char **line_req) {
+
+    fprintf(stderr, "split_str\n");
+
     char *msg_type[4];
     msg_type[0] = "Connection: ";
     msg_type[1] = "User-Agent: ";
@@ -1113,6 +1137,9 @@ void split_str(char *http_req_buf, char **line_req) {
 
 // Used to send HTTP messages to clients
 ssize_t send_http_msg(int sock_fd, char *msg_to_send, ssize_t dim) {
+
+    fprintf(stderr, "send_http_msg\n");
+
     ssize_t sent = 0;
     char *msg = msg_to_send;
     while (sent < dim) {
@@ -1134,6 +1161,9 @@ ssize_t send_http_msg(int sock_fd, char *msg_to_send, ssize_t dim) {
 
 // Used to get image from file system
 char *get_img(char *name, size_t img_dim, char *directory) {
+
+    fprintf(stderr, "get_img\n");
+
     ssize_t left = 0;
     int fd;
     char *buf;
@@ -1195,6 +1225,9 @@ char *get_img(char *name, size_t img_dim, char *directory) {
  * so this function will analyze the resource type and NOT the subtype.
  */
 int quality(char *h_accept) {   //TODO never returns -2;    use WURFL instead
+
+    fprintf(stderr, "quality\n");
+
     //h_accept is the accept type field from http_req
     double images, others, q;
     images = others = q = -2.0;
@@ -1250,6 +1283,9 @@ int quality(char *h_accept) {   //TODO never returns -2;    use WURFL instead
  * http_fields refers to documentation in split_str function
  */
 int data_to_send(int sock, char **http_fields) {
+
+    fprintf(stderr, "data_to_send\n");
+
     char *http_response = malloc(DIM * DIM * 2);
     if (!http_response)
         error_found("Error in malloc\n");
@@ -1337,6 +1373,7 @@ int data_to_send(int sock, char **http_fields) {
                 else {
                     char name_cached_img[DIM / 2];
                     memset(name_cached_img, (int) '\0', sizeof(char) * DIM / 2);
+                    //c e' un puntatore d'appoggio
                     struct cache *c;
                     int def_val = 70;
                     int processing_accept = quality(http_fields[5]);
@@ -1348,9 +1385,6 @@ int data_to_send(int sock, char **http_fields) {
                         quality_factor = def_val;
                     else
                         quality_factor = processing_accept;
-
-                    /*int quality_factor = processing_accept < 0 ? def_val : processing_accept;*/
-
                     lock(thds.mtx_cache_access);
                     c = i->img_c;
                     while (c) {
@@ -1364,27 +1398,6 @@ int data_to_send(int sock, char **http_fields) {
                              *      the cache list is already updated
                              */
                             look_for_cached_img(CACHE_N, name_cached_img);
-                            /*if (CACHE_N >= 0 && strncmp(thds.cache_hit_head->cache_name,
-                                                        name_cached_img, strlen(name_cached_img))) {
-                                struct cache_hit *prev_node, *node;
-                                prev_node = NULL;
-                                node = thds.cache_hit_tail;
-                                while (node) {
-                                    if (!strncmp(node->cache_name, name_cached_img, strlen(name_cached_img))) {
-                                        if (prev_node) {
-                                            prev_node->next_hit = node->next_hit;
-                                        } else {
-                                            thds.cache_hit_tail = thds.cache_hit_tail->next_hit;
-                                        }
-                                        node->next_hit = thds.cache_hit_head->next_hit;
-                                        thds.cache_hit_head->next_hit = node;
-                                        thds.cache_hit_head = thds.cache_hit_head->next_hit;
-                                        break;
-                                    }
-                                    prev_node = node;
-                                    node = node->next_hit;
-                                }
-                            }*/
                             break;
                         }
                         c = c->next_img_c;
@@ -1399,6 +1412,7 @@ int data_to_send(int sock, char **http_fields) {
                         char path[DIM / 2];
                         memset(path, (int) '\0', DIM / 2);
                         sprintf(path, "%s/%s", tmp_cache, name_cached_img);
+                        fprintf(stderr, "%s\n", path);
 
                         if (CACHE_N > 0) {
                             /*
@@ -1413,77 +1427,13 @@ int data_to_send(int sock, char **http_fields) {
                                 return -1;
                             }
 
-                            /*char *format = "convert %s/%s -quality %d %s/%s;exit";
-                            char command[DIM];
-                            memset(command, (int) '\0', DIM);
-                            sprintf(command, format, IMG_PATH, p_name, quality_factor, tmp_cache, name_cached_img);
-                            if (system(command)) {
-                                fprintf(stderr, "data_to_send: Unexpected error while refactoring image\n");
-                                free_time_http(char_time, http_response);
-                                unlock(thds.mtx_cache_access);
-                                return -1;
-                            }*/
-
-                            //after the resize
-                            if (insert_in_cache(path, quality_factor, name_cached_img, i, c, time, http_response))
+                            if (insert_in_cache(path, quality_factor, name_cached_img, i, time, http_response))
                                 fprintf(stderr, "Error in function: insert_in_cache\n");
-                            /*struct stat buf;
-                            memset(&buf, (int) '\0', sizeof(struct stat));
-                            errno = 0;
-                            //error control
-                            if (stat(path, &buf) != 0) {
-                                if (errno == ENAMETOOLONG) {
-                                    fprintf(stderr, "Path too long\n");
-                                    free_time_http(char_time, http_response);
-                                    unlock(thds.mtx_cache_access);
-                                    return -1;
-                                }
-                                fprintf(stderr, "data_to_send: Invalid path\n");
-                                free_time_http(char_time, http_response);
-                                unlock(thds.mtx_cache_access);
-                                return -1;
-                            } else if (!S_ISREG(buf.st_mode)) {
-                                fprintf(stderr, "Non-regular files can not be analysed!\n");
-                                free_time_http(char_time, http_response);
-                                unlock(thds.mtx_cache_access);
-                                return -1;
-                            }
-
-                            struct cache *new_entry = malloc(sizeof(struct cache));
-                            struct cache_hit *new_hit = malloc(sizeof(struct cache_hit));
-                            memset(new_entry, (int) '\0', sizeof(struct cache));
-                            memset(new_hit, (int) '\0', sizeof(struct cache_hit));
-                            if (!new_entry || !new_hit) {
-                                fprintf(stderr, "data_to_send: Error in malloc\n");
-                                free_time_http(char_time, http_response);
-                                unlock(thds.mtx_cache_access);
-                                return -1;
-                            }
-
-                            *//*
+                            /*
                              * filling struct cache of the relative image
                              * and inserting the struct cache_hit in the cache list
-                             *//*
-                            new_entry->q = quality_factor;
-                            strcpy(new_entry->img_q, name_cached_img);
-                            new_entry->size_q = (size_t) buf.st_size;
-                            new_entry->next_img_c = i->img_c;
-                            i->img_c = new_entry;
-                            c = i->img_c;
-
-                            strncpy(new_hit->cache_name, name_cached_img, strlen(name_cached_img));
-                            if (!thds.cache_hit_head && !thds.cache_hit_tail) {
-                                new_hit->next_hit = thds.cache_hit_head;
-                                thds.cache_hit_tail = thds.cache_hit_head = new_hit;
-                            }
-                            //inserting new_hit by the head
-                            else {
-                                new_hit->next_hit = thds.cache_hit_head->next_hit;
-                                thds.cache_hit_head->next_hit = new_hit;
-                                thds.cache_hit_head = thds.cache_hit_head->next_hit;
-                            }*/
+                             */
                             --CACHE_N;
-
                         }
 
                         else if (!CACHE_N){
@@ -1493,49 +1443,6 @@ int data_to_send(int sock, char **http_fields) {
                              */
                             if (delete_image(img_to_send, time, http_response) != 0)
                                 fprintf(stderr, "error in function : delete_image\n");
-                            /*char name_to_remove[DIM / 2];
-                            memset(name_to_remove, (int) '\0', DIM / 2);
-                            sprintf(name_to_remove, "%s/%s", tmp_cache, thds.cache_hit_tail->cache_name);
-
-                            DIR *dir;
-                            struct dirent *ent;
-                            errno = 0;
-                            dir = opendir(tmp_cache);
-                            //error control
-                            if (!dir) {
-                                if (errno == EACCES) {
-                                    fprintf(stderr, "data_to_send: Error in opendir: Permission denied\n");
-                                    free_time_http(char_time, http_response);
-                                    unlock(thds.mtx_cache_access);
-                                    return -1;
-                                }
-                                fprintf(stderr, "data_to_send: Error in opendir\n");
-                                free_time_http(char_time, http_response);
-                                unlock(thds.mtx_cache_access);
-                                return -1;
-                            }
-
-                            while ((ent = readdir(dir)) != NULL) {
-                                if (ent->d_type == DT_REG) {
-                                    if (!strncmp(ent->d_name, thds.cache_hit_tail->cache_name,
-                                                 strlen(thds.cache_hit_tail->cache_name))) {
-                                        rm_link(name_to_remove);
-                                        break;
-                                    }
-                                }
-                            }
-                            //if File is not found
-                            if (!ent) {
-                                fprintf(stderr, "File: '%s' not removed\n", name_to_remove);
-                            }
-
-                            if (closedir(dir)) {
-                                fprintf(stderr, "data_to_send: Error in closedir\n");
-                                free(img_to_send);
-                                free_time_http(char_time, http_response);
-                                unlock(thds.mtx_cache_access);
-                                return -1;
-                            }*/
 
                             if (resize_image(IMG_PATH, p_name, quality_factor, tmp_cache, name_cached_img)) {
                                 fprintf(stderr, "Error in function: rezize_image\n");
@@ -1543,131 +1450,11 @@ int data_to_send(int sock, char **http_fields) {
                                 unlock(thds.mtx_cache_access);
                                 return -1;
                             }
-
-                            /*// %s/%s = path/name_image; %d = factor quality
-                            char *format = "convert %s/%s -quality %d %s/%s;exit";
-                            char command[DIM];
-                            memset(command, (int) '\0', DIM);
-                            sprintf(command, format, IMG_PATH, p_name, quality_factor, tmp_cache, name_cached_img);
-                            if (system(command)) {
-                                fprintf(stderr, "data_to_send: Unexpected error while refactoring image\n");
-                                free_time_http(char_time, http_response);
-                                unlock(thds.mtx_cache_access);
-                                return -1;
-                            }*/
-
                             //freeing a cache slot
                             if (free_cache_slot(c, i, time, http_response))
                                 fprintf(stderr, "error in function: free_cache_slot\n");
-                            if (insert_in_cache(path, quality_factor, name_cached_img, i, c, time, http_response))
+                            if (insert_in_cache(path, quality_factor, name_cached_img, i, time, http_response))
                                 fprintf(stderr, "error in function: insert_in_cache\n");
-
-                            /*
-                            struct stat buf;
-                            memset(&buf, (int) '\0', sizeof(struct stat));
-                            errno = 0;
-                            if (stat(path, &buf) != 0) {
-                                if (errno == ENAMETOOLONG) {
-                                    fprintf(stderr, "Path too long\n");
-                                    free_time_http(char_time, http_response);
-                                    unlock(thds.mtx_cache_access);
-                                    return -1;
-                                }
-                                fprintf(stderr, "data_to_send: Invalid path\n");
-                                free_time_http(char_time, http_response);
-                                unlock(thds.mtx_cache_access);
-                                return -1;
-                            } else if (!S_ISREG(buf.st_mode)) {
-                                fprintf(stderr, "Non-regular files can not be analysed!\n");
-                                free_time_http(char_time, http_response);
-                                unlock(thds.mtx_cache_access);
-                                return -1;
-                            }
-
-                            struct cache *new_entry = malloc(sizeof(struct cache));
-                            memset(new_entry, (int) '\0', sizeof(struct cache));
-                            if (!new_entry) {
-                                fprintf(stderr, "data_to_send: Error in malloc\n");
-                                free_time_http(char_time, http_response);
-                                unlock(thds.mtx_cache_access);
-                                return -1;
-                            }
-                            //filling cache struct of current image
-                            new_entry->q = quality_factor;
-                            strcpy(new_entry->img_q, name_cached_img);
-                            new_entry->size_q = (size_t) buf.st_size;
-                            new_entry->next_img_c = i->img_c;
-                            i->img_c = new_entry;
-                            c = i->img_c;
-
-                            struct image *img_ptr = img;
-                            struct cache *cache_ptr;
-                            struct cache *cache_prev = NULL;
-
-                            char *ext = strrchr(thds.cache_hit_tail->cache_name, '_');
-                            //ext is the "_quality" of the resized img
-                            size_t dim_fin = strlen(ext);
-                            char name_i[DIM / 2];
-                            memset(name_i, (int) '\0', DIM / 2);
-                            strncpy(name_i, thds.cache_hit_tail->cache_name,
-                                    strlen(thds.cache_hit_tail->cache_name) - dim_fin);
-
-                            while (img_ptr) {
-                                if (!strncmp(img_ptr->name, name_i, strlen(name_i))) {
-                                    cache_ptr = img_ptr->img_c;
-                                    while (cache_ptr) {
-                                        if (!strncmp(cache_ptr->img_q, thds.cache_hit_tail->cache_name,
-                                                     strlen(thds.cache_hit_tail->cache_name))) {
-                                            if (!cache_prev)
-                                                img_ptr->img_c = cache_ptr->next_img_c;
-                                            else
-                                                cache_prev->next_img_c = cache_ptr->next_img_c;
-
-                                            free(cache_ptr);
-                                            break;
-                                        }
-                                        cache_prev = cache_ptr;
-                                        cache_ptr = cache_ptr->next_img_c;
-                                    }
-                                    if (!cache_ptr) {
-                                        fprintf(stderr, "data_to_send: Error! struct cache compromised\n"
-                                                "-Cache size automatically set to Unlimited\n\t\tfinding: %s\n", name_i);
-                                        free_time_http(char_time, http_response);
-                                        CACHE_N = -1;
-                                        unlock(thds.mtx_cache_access);
-                                        return -1;
-                                    }
-                                    break;
-                                }
-                                img_ptr = img_ptr->next_img;
-                            }
-                            if (!img_ptr) {
-                                CACHE_N = -1;
-                                fprintf(stderr, "data_to_send: Unexpected error while looking for image in struct image\n"
-                                        "-Cache size automatically set to Unlimited\n\t\tfinding: %s\n", name_i);
-                                free_time_http(char_time, http_response);
-                                unlock(thds.mtx_cache_access);
-                                return -1;
-                            }
-
-                            struct cache_hit *new_hit = malloc(sizeof(struct cache_hit));
-                            memset(new_hit, (int) '\0', sizeof(struct cache_hit));
-                            if (!new_hit) {
-                                fprintf(stderr, "data_to_send: Error in malloc\n");
-                                free_time_http(char_time, http_response);
-                                unlock(thds.mtx_cache_access);
-                                return -1;
-                            }
-
-                            strncpy(new_hit->cache_name, name_cached_img, strlen(name_cached_img));
-
-                            struct cache_hit *to_be_removed = thds.cache_hit_tail;
-                            new_hit->next_hit = thds.cache_hit_head->next_hit;
-                            thds.cache_hit_head->next_hit = new_hit;
-                            thds.cache_hit_head = thds.cache_hit_head->next_hit;
-                            thds.cache_hit_tail = thds.cache_hit_tail->next_hit;
-                            free(to_be_removed);
-*/
 
                         } else {
                             /*
@@ -1679,105 +1466,23 @@ int data_to_send(int sock, char **http_fields) {
                                 unlock(thds.mtx_cache_access);
                                 return -1;
                             }
-                            /*char *format = "convert %s/%s -quality %d %s/%s;exit";
-                            char command[DIM];
-                            memset(command, (int) '\0', DIM);
-                            sprintf(command, format, IMG_PATH, p_name, quality_factor, tmp_cache, name_cached_img);
-                            if (system(command)) {
-                                fprintf(stderr, "data_to_send: Unexpected error while refactoring image\n");
-                                free_time_http(char_time, http_response);
-                                unlock(thds.mtx_cache_access);
-                                return -1;
-                            }*/
-
-                            if (insert_in_cache(path, quality_factor, name_cached_img, i, c, time, http_response))
+                            if (insert_in_cache(path, quality_factor, name_cached_img, i, time, http_response))
                                 fprintf(stderr, "error in function: insert_in_cache\n");
-
-                        /*
-                            struct stat buf;
-                            memset(&buf, (int) '\0', sizeof(struct stat));
-                            errno = 0;
-                            if (stat(path, &buf) != 0) {
-                                if (errno == ENAMETOOLONG) {
-                                    fprintf(stderr, "Path too long\n");
-                                    free_time_http(char_time, http_response);
-                                    unlock(thds.mtx_cache_access);
-                                    return -1;
-                                }
-                                fprintf(stderr, "data_to_send: Invalid path\n");
-                                free_time_http(char_time, http_response);
-                                unlock(thds.mtx_cache_access);
-                                return -1;
-                            } else if (!S_ISREG(buf.st_mode)) {
-                                fprintf(stderr, "Non-regular files can not be analysed!\n");
-                                free_time_http(char_time, http_response);
-                                unlock(thds.mtx_cache_access);
-                                return -1;
-                            }
-
-                            struct cache *new_entry = malloc(sizeof(struct cache));
-                            memset(new_entry, (int) '\0', sizeof(struct cache));
-                            if (!new_entry) {
-                                fprintf(stderr, "data_to_send: Error in malloc\n");
-                                free_time_http(char_time, http_response);
-                                unlock(thds.mtx_cache_access);
-                                return -1;
-                            }
-
-                            new_entry->q = quality_factor;
-                            strcpy(new_entry->img_q, name_cached_img);
-                            new_entry->size_q = (size_t) buf.st_size;
-                            new_entry->next_img_c = i->img_c;
-                            i->img_c = new_entry;
-                            c = i->img_c;
-*/
                         }
                     }
 
                     unlock(thds.mtx_cache_access);
 
                     if (strncmp(http_fields[0], "HEAD", 4)) {
-                    /*                        DIR *dir;
-                        struct dirent *ent;
-                        errno = 0;
-                        dir = opendir(tmp_cache);
-                        if (!dir) {
-                            if (errno == EACCES) {
-                                fprintf(stderr, "data_to_send: Error in opendir: Permission denied\n");
-                                free_time_http(char_time, http_response);
-                                return -1;
-                            }
-                            fprintf(stderr, "data_to_send: Error in opendir\n");
-                            free_time_http(char_time, http_response);
+                        img_to_send = search_file(i, name_cached_img, img_to_send, c, time, http_response);
+                        if (!img_to_send) {
+                            fprintf(stderr, "data_to_send: Error in get_img\n");
+                            free_time_http(time, http_response);
                             return -1;
                         }
-
-                        //finding the requested image
-                        while ((ent = readdir(dir)) != NULL) {
-                            if (ent->d_type == DT_REG) {
-                                if (!strncmp(ent->d_name, name_cached_img, strlen(name_cached_img))) {
-                                    img_to_send = get_img(name_cached_img, c->size_q, tmp_cache);
-                                    if (!img_to_send) {
-                                        fprintf(stderr, "data_to_send: Error in get_img\n");
-                                        free_time_http(char_time, http_response);
-                                        return -1;
-                                    }
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (closedir(dir)) {
-                            fprintf(stderr, "data_to_send: Error in closedir\n");
-                            free(img_to_send);
-                            free_time_http(char_time, http_response);
-                            return -1;
-                        }*/
-                        if (search_file(name_cached_img, img_to_send, c, time, http_response))
-                            fprintf(stderr, "error in function: search_file\n");
                     }
-                    dim = c->size_q;
-                }
+                    dim = i->img_c->size_q;
+                } //END if looking in cache
 
                 sprintf(http_response, header, 200, "OK", time, server_name, "image/gif", dim, "keep-alive");
                 ssize_t dim_tot = (size_t) strlen(http_response);
@@ -1792,6 +1497,7 @@ int data_to_send(int sock, char **http_fields) {
                         }
                         memset(http_response + dim_tot, (int) '\0', (size_t) dim);
                     }
+
                     h = http_response;
                     //points at the end of the header
                     h += dim_tot;
@@ -1804,7 +1510,6 @@ int data_to_send(int sock, char **http_fields) {
                     free_time_http(time, http_response);
                     return -1;
                 }
-
                 free(img_to_send);
                 break;
             }
@@ -1828,6 +1533,9 @@ int data_to_send(int sock, char **http_fields) {
         }
     }
     free_time_http(time, http_response);
+
+    fprintf(stderr, "data_to_send: END\n");
+
     return 0;
 }
 
@@ -1836,6 +1544,9 @@ int data_to_send(int sock, char **http_fields) {
  * Analyzes HTTP message
  */
 void respond(int sock, struct sockaddr_in client) {
+
+    fprintf(stderr, "respond\n");
+
     //buffer
     char http_req[DIM * DIM];
     char *line_req[7];
@@ -1845,6 +1556,10 @@ void respond(int sock, struct sockaddr_in client) {
     struct timeval tv;
     tv.tv_sec = 10; //TODO look timeval struct
     tv.tv_usec = 0;
+
+
+    //fprintf(stderr, "respond: 1\n");
+
     if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(struct timeval)) < 0)
         fprintf(stderr, "respond: Error in setsockopt\n");
 
@@ -1854,6 +1569,9 @@ void respond(int sock, struct sockaddr_in client) {
             line_req[i] = NULL;
 
         errno = 0;
+
+        //fprintf(stderr, "respond: 2\n");
+
         tmp = recv(sock, http_req, 5 * DIM, 0);
 
         if (tmp == -1) {
@@ -1895,13 +1613,23 @@ void respond(int sock, struct sockaddr_in client) {
             fprintf(stderr, "Client disconnected\n");
             break;
         } else {
+
+            fprintf(stderr, "respond: 3\n");
+
             split_str(http_req, line_req);
+
+            //fprintf(stderr, "respond: 4\n");
 
             char log_string[DIM / 2];
             memset(log_string, (int) '\0', DIM / 2);
+
+            fprintf(stderr, "respond: 5\n");
+
             sprintf(log_string, "\tClient:\t%s\tRequest: '%s %s %s'\n",
                     inet_ntoa(client.sin_addr), line_req[0], line_req[1], line_req[2]);
             write_log(log_string);
+
+            //fprintf(stderr, "respond: 6\n");
 
             if (data_to_send(sock, line_req))
                 break;
@@ -1914,6 +1642,9 @@ void respond(int sock, struct sockaddr_in client) {
  * This function is used to manage client's connection
  */
 void *manage_connection(void *arg) {
+
+    fprintf(stderr, "manage_connection\n");
+
     //join not needed
     if (pthread_detach(pthread_self()) != 0)
         error_found("Error in pthread_detach\n");
@@ -1996,6 +1727,9 @@ void *manage_connection(void *arg) {
         kill_th(k);
         k -> clients[slot_c] = -1;
 
+        //prova
+        //unlock(k -> mtx_thread_conn_number);
+
         signal_t(k -> full);
     }
 
@@ -2008,6 +1742,9 @@ void *manage_connection(void *arg) {
  * in the case in which the server load is rising
  */
 void spawn_th(struct th_sync *k) {
+
+    fprintf(stderr, "spawn_th\n");
+
     /*
      * Threads are created dynamically in need with the number of connections.
      * If the number of connections decreases, the number of active threads
@@ -2037,6 +1774,9 @@ void spawn_th(struct th_sync *k) {
  * until the system load is not lowered.
  * */
 void *manage_threads(void *arg) {
+
+    fprintf(stderr, "manage_threads\n");
+
     struct th_sync *k = (struct th_sync *) arg;
 
     create_th(catch_command, arg);
@@ -2127,6 +1867,9 @@ void *manage_threads(void *arg) {
 }
 
 int main(int argc, char **argv) {
+
+    fprintf(stderr, "main\n");
+
     if (argc > 11) {
         fprintf(stderr, "Too many arguments\n\n");
         usage(*argv);
