@@ -447,10 +447,10 @@ void startServer(void) {
     (server_addr).sin_addr.s_addr = htonl(INADDR_ANY);  // All available interface
     (server_addr).sin_port = htons((unsigned short) PORT);
 
-    /*// To reuse a socket  //TODO watch this
+    // To reuse a socket  //TODO watch this
     int flag = 1;
     if (setsockopt(LISTENsd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) != 0)
-        error_found("Error in setsockopt\n");*/
+        error_found("Error in setsockopt\n");
 
     errno = 0;
     if (bind(LISTENsd, (struct sockaddr *) &server_addr, sizeof(server_addr)) < 0) {
@@ -462,7 +462,7 @@ void startServer(void) {
             //the given address is already in use
             case EADDRINUSE:
                 // NON PIU NECESSARIO GRAZIE A SO_REUSEADDR (vedi sopra)
-                error_found("Address in use\n");
+                //error_found("Address in use\n");
 
             //the socket is already bound to an address
             case EINVAL:
@@ -1149,12 +1149,23 @@ ssize_t send_http_msg(int sock_fd, char *msg_to_send, ssize_t dim) {
          */
         sent = send(sock_fd, msg, (size_t) dim, MSG_NOSIGNAL);
 
+        fprintf(stderr, "send_http_msg: 1\n");
+
         if (sent <= 0)
             break;
 
         msg += sent;
+
+        fprintf(stderr, "send_http_msg: 2\n");
+
         dim -= sent;
+
+        fprintf(stderr, "send_http_msg: 3\n");
+
     }
+
+    fprintf(stderr, "send_http_msg: END\n");
+    fprintf(stderr, "send_http_msg: sent is: %d\n", sent);
 
     return sent;
 }
@@ -1306,6 +1317,8 @@ int data_to_send(int sock, char **http_fields) {
         h += strlen(http_response);
         memcpy(h, HTML[2], strlen(HTML[2]));
 
+        fprintf(stderr, "data_to_send: 1\n");
+
         if (send_http_msg(sock, http_response, strlen(http_response)) == -1) {
             fprintf(stderr, "Error while sending data to client\n");
             free_time_http(time, http_response);
@@ -1323,6 +1336,8 @@ int data_to_send(int sock, char **http_fields) {
             memcpy(h, HTML[0], strlen(HTML[0]));
         }
 
+        fprintf(stderr, "data_to_send: 2\n");
+
         if (send_http_msg(sock, http_response, strlen(http_response)) == -1) {
             fprintf(stderr, "Error while sending data to client\n");
             free_time_http(time, http_response);
@@ -1334,6 +1349,7 @@ int data_to_send(int sock, char **http_fields) {
      */
     else {
         struct image *i = img;
+        struct image *first_img = img;
         char *p_name;
         //if / is not found enters the if
         if (!(p_name = strrchr(http_fields[1], '/')))
@@ -1451,10 +1467,15 @@ int data_to_send(int sock, char **http_fields) {
                                 return -1;
                             }
                             //freeing a cache slot
-                            if (free_cache_slot(c, i, time, http_response))
+                            if (free_cache_slot(first_img, time, http_response))
                                 fprintf(stderr, "error in function: free_cache_slot\n");
+
+                            //++CACHE_N;
+
                             if (insert_in_cache(path, quality_factor, name_cached_img, i, time, http_response))
                                 fprintf(stderr, "error in function: insert_in_cache\n");
+
+                            //--CACHE_N;
 
                         } else {
                             /*
@@ -1475,6 +1496,9 @@ int data_to_send(int sock, char **http_fields) {
 
                     if (strncmp(http_fields[0], "HEAD", 4)) {
                         img_to_send = search_file(i, name_cached_img, img_to_send, c, time, http_response);
+
+                        fprintf(stderr, "data_to_send: img_to_send is: %s\n", img_to_send);
+
                         if (!img_to_send) {
                             fprintf(stderr, "data_to_send: Error in get_img\n");
                             free_time_http(time, http_response);
@@ -1505,6 +1529,9 @@ int data_to_send(int sock, char **http_fields) {
                     memcpy(h, img_to_send, (size_t) dim);
                     dim_tot += dim;
                 }
+
+                fprintf(stderr, "data_to_send: 3\n");
+
                 if (send_http_msg(sock, http_response, dim_tot) == -1) {
                     fprintf(stderr, "data_to_send: Error while sending data to client\n");
                     free_time_http(time, http_response);
@@ -1515,7 +1542,6 @@ int data_to_send(int sock, char **http_fields) {
             }
             i = i->next_img;
         }
-
         //if image has not been found
         if (!i) {
             sprintf(http_response, header, 404, "Not Found", time, server_name, "text/html", strlen(HTML[1]), "close");
@@ -1525,6 +1551,9 @@ int data_to_send(int sock, char **http_fields) {
                 h += strlen(http_response);
                 memcpy(h, HTML[1], strlen(HTML[1]));
             }
+
+            fprintf(stderr, "data_to_send: 4\n");
+
             if (send_http_msg(sock, http_response, strlen(http_response)) == -1) {
                 fprintf(stderr, "Error while sending data to client\n");
                 free_time_http(time, http_response);
@@ -1533,9 +1562,6 @@ int data_to_send(int sock, char **http_fields) {
         }
     }
     free_time_http(time, http_response);
-
-    fprintf(stderr, "data_to_send: END\n");
-
     return 0;
 }
 
@@ -1552,28 +1578,19 @@ void respond(int sock, struct sockaddr_in client) {
     char *line_req[7];
     ssize_t tmp;
     int i;
-
     struct timeval tv;
     tv.tv_sec = 10; //TODO look timeval struct
     tv.tv_usec = 0;
 
-
-    //fprintf(stderr, "respond: 1\n");
-
     if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(struct timeval)) < 0)
         fprintf(stderr, "respond: Error in setsockopt\n");
-
     do {
         memset(http_req, (int) '\0', 5 * DIM);
         for (i = 0; i < 7; ++i)
             line_req[i] = NULL;
 
         errno = 0;
-
-        //fprintf(stderr, "respond: 2\n");
-
         tmp = recv(sock, http_req, 5 * DIM, 0);
-
         if (tmp == -1) {
             switch (errno) {
                 case EFAULT:
@@ -1613,23 +1630,14 @@ void respond(int sock, struct sockaddr_in client) {
             fprintf(stderr, "Client disconnected\n");
             break;
         } else {
-
-            fprintf(stderr, "respond: 3\n");
-
             split_str(http_req, line_req);
-
-            //fprintf(stderr, "respond: 4\n");
-
             char log_string[DIM / 2];
             memset(log_string, (int) '\0', DIM / 2);
-
-            fprintf(stderr, "respond: 5\n");
-
             sprintf(log_string, "\tClient:\t%s\tRequest: '%s %s %s'\n",
                     inet_ntoa(client.sin_addr), line_req[0], line_req[1], line_req[2]);
             write_log(log_string);
 
-            //fprintf(stderr, "respond: 6\n");
+            fprintf(stderr, "log message is: %s\n", log_string);
 
             if (data_to_send(sock, line_req))
                 break;
@@ -1657,8 +1665,8 @@ void *manage_connection(void *arg) {
     slot_c = k -> slot_c;
     signal_t(k -> th_start);
     unlock(k -> mtx_sync_conditions);
-
     lock(k -> mtx_thread_conn_number);
+
     if (k -> clients[slot_c] == -3) {
         // Thread ready for incoming connections
         k -> clients[slot_c] = -1;
@@ -1688,7 +1696,6 @@ void *manage_connection(void *arg) {
             unlock(k->mtx_thread_conn_number);
             break;
         }
-
         /*
          * if sock >= 0:
          * copies the sockaddr_in struct in client
@@ -1703,7 +1710,6 @@ void *manage_connection(void *arg) {
          */
         spawn_th(k);
         unlock(k -> mtx_thread_conn_number);
-
         respond(sock, client);
 
         errno = 0;
@@ -1721,18 +1727,12 @@ void *manage_connection(void *arg) {
                     fprintf(stderr, "Error in close\n");
             }
         }
-
         lock(k -> mtx_thread_conn_number);
         --k -> connections;
         kill_th(k);
         k -> clients[slot_c] = -1;
-
-        //prova
-        //unlock(k -> mtx_thread_conn_number);
-
         signal_t(k -> full);
     }
-
     pthread_exit(EXIT_SUCCESS);
 }
 
@@ -1778,13 +1778,12 @@ void *manage_threads(void *arg) {
     fprintf(stderr, "manage_threads\n");
 
     struct th_sync *k = (struct th_sync *) arg;
-
-    create_th(catch_command, arg);
-    init_th(MINTH, manage_connection, arg);
-
     int connsocketFD, i = 0, j;
     struct sockaddr_in client;
     socklen_t socksize = sizeof(struct sockaddr_in);
+
+    create_th(catch_command, arg);
+    init_th(MINTH, manage_connection, arg);
 
     fprintf(stdout, "\n\n\n-Waiting for incoming connection...\n");
     // Accept connections
@@ -1793,14 +1792,14 @@ void *manage_threads(void *arg) {
         if (k -> connections + 1 > MAXCONN) {
             wait_t(k -> full, k -> mtx_thread_conn_number); }
         unlock(k -> mtx_thread_conn_number);
-
         memset(&client, (int) '\0', socksize);
+
         errno = 0;
         connsocketFD = accept(LISTENsd, (struct sockaddr *) &client, &socksize);
         memset(&k->client_addr, (int) '\0', socksize);
         memcpy(&k->client_addr, &client, socksize);
-
         lock(k -> mtx_thread_conn_number);
+
         if (connsocketFD == -1) {
             switch (errno) {
                 case ECONNABORTED:
@@ -1844,7 +1843,6 @@ void *manage_threads(void *arg) {
                     error_found("Error in accept\n");
             }
         }
-
         //printf("\nNUM CONN: %d\t\tTH_ACT: %d\t\tTH_THR: %d\n\n", k -> connections, k -> th_act, k -> th_act_thr);
         j = 1;
         while (k -> clients[i] != -1) {
@@ -1880,12 +1878,9 @@ int main(int argc, char **argv) {
 
     init(argc, argv, &mtx_s_c, &mtx_c, &mtx_t,
          &th_start, &full, &thds);
-
     // To ignore SIGPIPE
     catch_signal();
-
     manage_threads(&thds);
-
     return EXIT_SUCCESS;
 }
 
