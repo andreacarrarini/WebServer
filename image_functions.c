@@ -7,8 +7,6 @@
 
 int resize_image(char *IMG_PATH, char *p_name, int quality, char *tmp_cache, char *name_cached_image) {
 
-    fprintf(stderr, "resize_image\n");
-
     char image_complete_path[DIM];
     strcpy(image_complete_path, IMG_PATH);
     strcat(image_complete_path, p_name);
@@ -20,12 +18,12 @@ int resize_image(char *IMG_PATH, char *p_name, int quality, char *tmp_cache, cha
 
     MagickWand *wand = NewMagickWand();
     if (!wand) {
-        fprintf(stderr, "error creating wand\n");
+        fprintf(stderr, "resize_image: error creating wand\n");
         return -1;
     }
 
     if (MagickReadImage(wand, image_complete_path) == MagickFalse) {
-        fprintf(stderr, "error in MagickReadImage function\n");
+        fprintf(stderr, "resize_image: error in MagickReadImage function\n");
         return -1;
     }
 
@@ -36,18 +34,18 @@ int resize_image(char *IMG_PATH, char *p_name, int quality, char *tmp_cache, cha
     float new_width = (float)original_width * (float)quality/100;
 
     if (MagickScaleImage(wand, (size_t)new_width, (size_t)new_height) == MagickFalse) {
-        fprintf(stderr, "error in MagickScaleImage function\n");
+        fprintf(stderr, "resize_image: error in MagickScaleImage function\n");
         return -1;
     }
 
     if (MagickWriteImage(wand, cached_complete_path) == MagickFalse){
-        fprintf(stderr, "error in MagickWriteImage function");
+        fprintf(stderr, "resize_image: error in MagickWriteImage function");
         return -1;
     }
 
     if (LOG) {
         char log_msg[DIM];
-        sprintf(log_msg, "created new image in cache: %s\n", name_cached_image);
+        sprintf(log_msg, "resize_image: created new image in cache: %s\n", name_cached_image);
         write_on_stream(log_msg, LOG);
     }
 
