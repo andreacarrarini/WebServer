@@ -45,51 +45,51 @@ void signal_t(pthread_cond_t *c) {
 }
 
 // Used by kill_th function
-void for_kill(int n_th, struct th_sync *k) {
+void for_kill(int n_th, struct threads_sync_struct *k) {
 
     int i, j;
 
-    for (i = j = 0; i < n_th && j < MAXCONN; ++j)
-        if (k -> clients[j] == -1) {
-            k -> clients[j] = -2;
+    for (i = j = 0; i < n_th && j < MAX_CONNECTION; ++j)
+        if (k -> client_socket_list[j] == -1) {
+            k -> client_socket_list[j] = -2;
             signal_t(k -> threads_cond_list + j);
             ++i;
         }
 
     // If there are not enough threads ready (with -1 flag)
     if (i < n_th)
-        k -> to_kill = n_th - i;
+        k -> threads_to_kill = n_th - i;
 }
 
 // Used to kill threads
-void kill_th(struct th_sync *k) {
+void kill_th(struct threads_sync_struct *k) {
 
     int n_th = 0;
 
-    if (k -> th_act_thr > MINTH) {
-        int old_thr = (k -> th_act_thr - MINTH / 2) * 2 / 3;
+    if (k -> min_active_threads_treshold > MIN_THREAD_TRESHOLD) {
+        int old_thr = (k -> min_active_threads_treshold - MIN_THREAD_TRESHOLD / 2) * 2 / 3;
         // To bring system to the default thread count
         if (!k -> connections) {
-            k -> th_act_thr = MINTH;
-            n_th = k -> th_act - k -> th_act_thr;
-            k -> to_kill = 0;
+            k -> min_active_threads_treshold = MIN_THREAD_TRESHOLD;
+            n_th = k -> active_threads - k -> min_active_threads_treshold;
+            k -> threads_to_kill = 0;
             for_kill(n_th, k);
             return;
         } else if (k -> connections < old_thr) {
             // Gradual deallocation
-            if (k -> th_act_thr == MAXCONN) {
-                if (!(n_th = (MAXCONN - MINTH) % (MINTH / 2)))
-                    n_th = MINTH / 2;
+            if (k -> min_active_threads_treshold == MAX_CONNECTION) {
+                if (!(n_th = (MAX_CONNECTION - MIN_THREAD_TRESHOLD) % (MIN_THREAD_TRESHOLD / 2)))
+                    n_th = MIN_THREAD_TRESHOLD / 2;
             } else {
-                n_th = MINTH / 2;
+                n_th = MIN_THREAD_TRESHOLD / 2;
             }
-            k -> th_act_thr -= n_th;
+            k -> min_active_threads_treshold -= n_th;
         }
     }
 
-    if (k -> to_kill) {
-        n_th += k -> to_kill;
-        k -> to_kill = 0;
+    if (k -> threads_to_kill) {
+        n_th += k -> threads_to_kill;
+        k -> threads_to_kill = 0;
     }
 
     for_kill(n_th, k);

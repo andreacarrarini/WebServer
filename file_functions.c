@@ -5,12 +5,12 @@
 #include "structs.h"
 #include "functions.h"
 
-char *search_file(struct image *image, char *name_cached_img, char *img_to_send, struct cache *cache_ptr, char *char_time, char *http_response) {
+char *search_file(struct image_struct *image, char *name_cached_img, char *img_to_send, struct cache_struct *cache_ptr, char *char_time, char *http_response) {
 
     DIR *dir;
     struct dirent *ent;
     errno = 0;
-    dir = opendir(tmp_cache);
+    dir = opendir(cache_tmp_dir);
     if (!dir) {
         if (errno == EACCES) {
             fprintf(stderr, "search_file: Error in opendir: Permission denied\n");
@@ -22,24 +22,24 @@ char *search_file(struct image *image, char *name_cached_img, char *img_to_send,
         return NULL;
     }
 
-    //finding the requested image
+    //finding the requested image_struct
 
     while ((ent = readdir(dir)) != NULL) {
         if (ent->d_type == DT_REG) {
 
             if (!strncmp(ent->d_name, name_cached_img, strlen(name_cached_img))) {
-                cache_ptr = image->img_c;
+                cache_ptr = image->cached_image;
                 while (cache_ptr) {
-                    if (!strncmp(name_cached_img, cache_ptr->img_q, strlen(name_cached_img))) {
-                        img_to_send = get_img(name_cached_img, cache_ptr->size_q, tmp_cache);
+                    if (!strncmp(name_cached_img, cache_ptr->cached_name, strlen(name_cached_img))) {
+                        img_to_send = get_image(name_cached_img, cache_ptr->cached_image_size, cache_tmp_dir);
                         if (!img_to_send) {
-                            fprintf(stderr, "search_file: Error in get_img\n");
+                            fprintf(stderr, "search_file: Error in get_image\n");
                             free_time_http(char_time, http_response);
                             return NULL;
                         }
                         break;
                     }
-                    cache_ptr = cache_ptr->next_img_c;
+                    cache_ptr = cache_ptr->next_cached_image;
                 }
             }
         }
@@ -54,14 +54,14 @@ char *search_file(struct image *image, char *name_cached_img, char *img_to_send,
     return img_to_send;
 }
 
-char *search_file_resized(struct image *image, char *name_resized_image, char *img_to_send, struct cache *cache_ptr, char *char_time, char *http_response) {
+char *search_file_resized(struct image_struct *image, char *name_resized_image, char *img_to_send, struct cache_struct *cache_ptr, char *char_time, char *http_response) {
 
     fprintf(stderr, "search_file_resized\n");
 
     DIR *dir;
     struct dirent *ent;
     errno = 0;
-    dir = opendir(tmp_resized);
+    dir = opendir(resized_tmp_dir);
     if (!dir) {
         if (errno == EACCES) {
             fprintf(stderr, "search_file_resized: Error in opendir: Permission denied\n");
@@ -73,7 +73,7 @@ char *search_file_resized(struct image *image, char *name_resized_image, char *i
         return NULL;
     }
 
-    //finding the requested image
+    //finding the requested image_struct
 
     fprintf(stderr, "search_file_resized: 1\n");
 
@@ -86,14 +86,14 @@ char *search_file_resized(struct image *image, char *name_resized_image, char *i
 
                 fprintf(stderr, "search_file_resized: 2\n");
 
-                img_to_send = get_img(name_resized_image, cache_ptr->size_q, tmp_cache);
+                img_to_send = get_image(name_resized_image, cache_ptr->cached_image_size, cache_tmp_dir);
 
                 fprintf(stderr, "search_file_resized: img_to_send is: %s\n", img_to_send);
 
                 fprintf(stderr, "search_file_resized: 3\n");
 
                 if (!img_to_send) {
-                    fprintf(stderr, "search_file_resized: Error in get_img\n");
+                    fprintf(stderr, "search_file_resized: Error in get_image\n");
                     free_time_http(char_time, http_response);
                     return NULL;
                 }
