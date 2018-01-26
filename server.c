@@ -1,37 +1,34 @@
 #include <time.h>
 #include "structs.h"
 #include "functions.h"
-//#include <MagickWand>
 
 #define DIM 512
 #define DIM2 64
 
-struct image *img;
-struct th_sync thds;
-
-//TODO change error msg from type "function: error" to "error in function"
+struct image_struct *image_struct;
+struct threads_sync_struct thread_struct;
 
 // Log's file pointer
 FILE *LOG = NULL;
 // Pointer to html files; 1st: root, 2nd: 404, 3rd 400.
-char *HTML[3];
+char *HTML_PAGES[3];
 int PORT = 8080;
 //MINimum THreads
-int MINTH = 250;
-int MAXCONN = 1500;
-int LISTENsd;
-//char IMG_PATH[DIM / 2];
-char IMG_PATH[DIM];
+int MIN_THREAD_TRESHOLD = 250;
+int MAX_CONNECTION = 1500;
+int LISTEN_SOCKET_DESCRIPTOR;
+//char images_path[DIM / 2];
+char images_path[DIM];
 // Number of cached images
-volatile int CACHE_N = -1;
-char tmp_resized[DIM2] = "/tmp/RESIZED.XXXXXX";
+volatile int CACHE_COUNTER = -1;
+char resized_tmp_dir[DIM2] = "/tmp/RESIZED.XXXXXX";
 // tmp files cached
-char tmp_cache[DIM2] = "/tmp/CACHE.XXXXXX";
+char cache_tmp_dir[DIM2] = "/tmp/CACHE.XXXXXX";
 
 // User's command
-char *user_command = "-Enter 'q'/'Q' to close the server, "
-        "'s'/'S' to know server's state or "
-        "'f'/'F' to force Log file write";
+char *user_command = "-Enter 'q' to stop the server, "
+        "'s' to know server state or "
+        "'f' to force Log file write";
 
 /*int main(int argc, char *argv[]) {
 
@@ -198,120 +195,117 @@ void child_job(void* arg) {
 
 
 
-void write_on_stream(char *s, FILE *file) {
+void write_on_stream(char *string, FILE *file) {
 
-    size_t el;
-    size_t len = strlen(s);
+    size_t count;
+    size_t len = strlen(string);
 
-    while ((el = fwrite(s, sizeof(char), len, file)) < len) {
+    while ((count = fwrite(string, sizeof(char), len, file)) < len) {
         if (ferror(file)) {
-            fprintf(stderr, "Error in fwrite\n");
-            exit(EXIT_FAILURE);
+            error_found("write_on_stream: error in fwrite\n");
         }
-        len -= el;
-        s += el;
+        len -= count;
+        string += count;
     }
 
     if (fflush(file)) {
-        fprintf(stderr, "Error in fflush\n");
-        exit(EXIT_FAILURE);
+        error_found("write_on_stream: error in fflush\n");
     }
 }
 
 
-// To close the process on error
-void exit_on_error(char *s) {
+/*// To close the process on error
+void exit_on_error(char *error) {
 
-    fprintf(stderr, "%s\n", s);
+    fprintf(stderr, "%s\n", error);
     exit(EXIT_FAILURE);
-}
+}*/
 
 char *get_time(void) {
 
-    time_t now = time(NULL);
-    char *k = malloc(sizeof(char) * DIM2);
-    if (!k)
-        error_found("Error in malloc\n");
+    time_t time_orig = time(NULL);
+    char *formatted_time = malloc(sizeof(char) * DIM2);
+    if (!formatted_time)
+        error_found("get_time: Error in malloc\n");
     /*
      * The call ctime(t) converts the calendar char_time t into a null-terminated string
      * of the form: "Wed Jun 30 21:49:08 1993\n"
      */
-    strcpy(k, ctime(&now));
-    if (!k)
-        error_found("Error in ctime\n");
-    if (k[strlen(k) - 1] == '\n')
-        k[strlen(k) - 1] = '\0';
-    return k;
+    strcpy(formatted_time, ctime(&time_orig));
+    if (!formatted_time)
+        error_found("get_time: Error in ctime\n");
+    if (formatted_time[strlen(formatted_time) - 1] == '\n')
+        formatted_time[strlen(formatted_time) - 1] = '\0';
+    return formatted_time;
 }
 
-void write_log(char *s) {
+void write_log(char *log_message) {
 
-    char *t = get_time();
-    write_on_stream(t, LOG);
-    write_on_stream(s, LOG);
-    free(t);
+    char *time = get_time();
+    write_on_stream(time, LOG);
+    write_on_stream(log_message, LOG);
+    free(time);
 }
 
-FILE *open_file(const char *path) {
+FILE *open_LOG_file(const char *path_to_LOG_dir) {
 
     errno = 0;
-    char s[strlen(path) + 4];
-    sprintf(s, "%sLOG", path);
-    if (s[strlen(s)] != '\0')
-        s[strlen(s)] = '\0';
-    FILE *f = fopen(s, "a");
+    char LOG_path[strlen(path_to_LOG_dir) + 4];
+    sprintf(LOG_path, "%sLOG", path_to_LOG_dir);
+    if (LOG_path[strlen(LOG_path)] != '\0')
+        LOG_path[strlen(LOG_path)] = '\0';
+    FILE *f = fopen(LOG_path, "a");
     if (!f) {
         if (errno == EACCES)
-            error_found("Missing permission\n");
-        error_found("Error in fopen\n");
+            error_found("open_LOG_file: Missing permission\n");
+        error_found("open_LOG_file: Error in fopen\n");
     }
-
     return f;
 }
 
-void usage(const char *p) {
+void user_usage(const char *c) {
 
-    fprintf(stderr, "Usage: %s [-l log's file path]\n"
-            "\t\t\t[-p port]\n"
-            "\t\t\t[-i image's path]\n"
-            "\t\t\t[-t number_of_initial_threads]\n"
-            "\t\t\t[-c maximum connection's number]\n"
-            "\t\t\t[-h help]\n", p);
+    fprintf(stderr, "Usage: %s [-l logs file path]\n"
+            "\t\t[-i images path]\n"
+            "\t\t[-p port number]\n"
+            "\t\t[-c maximum connections number]\n"
+            "\t\t[-t initial threads number]\n"
+            "\t\t[-h help]\n", c);
     exit(EXIT_SUCCESS);
 }
 
-void get_opt(int argc, char **argv, char **path, int *perc) {
+void get_command_line_options(int argc, char **argv, char **path) {
 
     int i = 1;
     for (; argv[i] != NULL; ++i)
         // option -h is not allowed
         if (strcmp(argv[i], "-h") == 0)
-            usage(argv[0]);
+            user_usage(argv[0]);
 
-    //mod_t means min thr number has been passed from line command,
-    //mod_c if max conn has been passed
-    int c; char *e; char mod_c = 0, mod_t = 0;
+    //t_mode means min thr number has been passed from line command,
+    //c_mode if max conn has been passed
+    int z; char *k; char c_mode = 0, t_mode = 0;
     struct stat statbuf;
     // Parsing the command line arguments
-    // -p := port; -l := directory to store Log files;
+    // -p := port;
+    // -l := directory to store Log files;
     // -i := directory of files to send;
     // -t := minimum number of thread's pool;
     // -c := maximum number of connections.
-    // -r := percentage of resized images which belong to HTML file
-    // -n := maximum cache size
-    while ((c = getopt(argc, argv, "p:l:i:t:c:r:n:")) != -1) {
-        switch (c) {
+    // -n := maximum cache_struct size
+    while ((z = getopt(argc, argv, "p:l:i:t:c:r:n:")) != -1) {
+        switch (z) {
             //sets the PORT number form the command line argument
             case 'p':
                 if (strlen(optarg) > 5)
-                    error_found("Port's number too high\n");
+                    error_found("get_command_line_options: Port number too high\n");
 
                 errno = 0;
-                int p_arg = (int) strtol(optarg, &e, 10);
-                if (errno != 0 || *e != '\0')
-                    error_found("Error in strtol: Invalid number port\n");
+                int p_arg = (int) strtol(optarg, &k, 10);
+                if (errno != 0 || *k != '\0')
+                    error_found("get_command_line_options: Error in strtol: Invalid number port\n");
                 if (p_arg > 65535)
-                    error_found("Port's number too high\n");
+                    error_found("get_command_line_options: Port number too high\n");
                 PORT = p_arg;
                 break;
 
@@ -322,10 +316,10 @@ void get_opt(int argc, char **argv, char **path, int *perc) {
                 //if an option is followed by a colon it requires an additional argument, optarg points to that argument
                 if (stat(optarg, &statbuf) != 0) {
                     if (errno == ENAMETOOLONG)
-                        error_found("Path too long\n");
-                    error_found("Invalid path for log files\n");
+                        error_found("get_command_line_options: Path too long\n");
+                    error_found("get_command_line_options: Invalid path for log files\n");
                 } else if (!S_ISDIR(statbuf.st_mode)) {
-                    error_found("The path is not a directory!\n");
+                    error_found("get_command_line_options: The path is not a directory!\n");
                 }
 
                 if (optarg[strlen(optarg) - 1] != '/') {
@@ -343,10 +337,10 @@ void get_opt(int argc, char **argv, char **path, int *perc) {
                 errno = 0;
                 if (stat(optarg, &statbuf) != 0) {
                     if (errno == ENAMETOOLONG)
-                        error_found("Path too long\n");
-                    error_found("Invalid path\n");
+                        error_found("get_command_line_options: Path too long\n");
+                    error_found("get_command_line_options: Invalid path\n");
                 } else if (!S_ISDIR(statbuf.st_mode)) {
-                    error_found("The path is not a directory!\n");
+                    error_found("Tget_command_line_options: the path is not a directory!\n");
                 }
 
                 if (optarg[strlen(optarg) - 1] != '/') {
@@ -362,109 +356,104 @@ void get_opt(int argc, char **argv, char **path, int *perc) {
             //sets the minimum threads in thread's pool
             case 't':
                 errno = 0;
-                int t_arg = (int) strtol(optarg, &e, 10);
-                if (errno != 0 || *e != '\0')
-                    error_found("Error in strtol: Invalid number\n");
+                int t_arg = (int) strtol(optarg, &k, 10);
+                if (errno != 0 || *k != '\0')
+                    error_found("get_command_line_options: Error in strtol: Invalid number\n");
                 if (t_arg < 1)
-                    error_found("Error: thread's number must be > 0!\n");
+                    error_found("get_command_line_options: Error: threads number must be > 0!\n");
                 if (t_arg < 2)
-                    error_found("Attention: due to performance problem, thread's numbers must be >= 2!\n");
-                MINTH = t_arg;
-                mod_t = 1;
+                    error_found("get_command_line_options: Attention: due to performance issue, threads number must be >= 2!\n");
+                MIN_THREAD_TRESHOLD = t_arg;
+                t_mode = 1;
                 break;
 
             //sets the number of maximum connections at the same char_time
             case 'c':
                 errno = 0;
-                int c_arg = (int) strtol(optarg, &e, 10);
-                if (errno != 0 || *e != '\0')
-                    error_found("Error in strtol: Invalid number\n");
+                int c_arg = (int) strtol(optarg, &k, 10);
+                if (errno != 0 || *k != '\0')
+                    error_found("get_command_line_options: Error in strtol: Invalid number\n");
                 if (c_arg < 1)
-                    error_found("Error: maximum connections' number must be > 0!");
-                MAXCONN = c_arg;
-                mod_c = 1;
+                    error_found("get_command_line_options: Error: maximum connections number must be > 0!");
+                MAX_CONNECTION = c_arg;
+                c_mode = 1;
                 break;
 
-            case 'r':
+/*            case 'r':
                 errno = 0;
-                *perc = (int) strtol(optarg, &e, 10);
-                if (errno != 0 || *e != '\0')
+                *perc = (int) strtol(optarg, &k, 10);
+                if (errno != 0 || *k != '\0')
                     error_found("Argument -r: Error in strtol: Invalid number\n");
                 if (*perc < 1 || *perc > 100)
-                    error_found("Argument -r: The number must be >=1 and <= 100\n");
-                break;
+                    error_found("Argument -r: The number must be > 0 and <= 100\n");
+                break;*/
 
             case 'n':
                 errno = 0;
-                int cache_size = (int) strtol(optarg, &e, 10);
-                if (errno != 0 || *e != '\0')
-                    error_found("Argument -n: Error in strtol: Invalid number\n");
+                int cache_size = (int) strtol(optarg, &k, 10);
+                if (errno != 0 || *k != '\0')
+                    error_found("get_command_line_options: Argument -n: Error in strtol: Invalid number\n");
                 if (cache_size)
-                    CACHE_N = cache_size;
+                    CACHE_COUNTER = cache_size;
                 break;
 
             case '?':
-                error_found("Invalid argument\n");
+                error_found("get_command_line_options: Invalid argument\n");
 
             default:
-                error_found("Unknown error in getopt\n");
+                error_found("get_command_line_options: Unknown error in getopt\n");
         }
     }
-    if (mod_c && !mod_t && MAXCONN < MINTH)
-        MINTH = MAXCONN;
-    else if (mod_t && !mod_c && MINTH > MAXCONN)
-        MAXCONN = MINTH;
-    if (MINTH > MAXCONN)
-        error_found("Error: number of maximum connections is lower then minimum number of the threads!\n");
+    if (c_mode && !t_mode && MAX_CONNECTION < MIN_THREAD_TRESHOLD)
+        MIN_THREAD_TRESHOLD = MAX_CONNECTION;
+    else if (t_mode && !c_mode && MIN_THREAD_TRESHOLD > MAX_CONNECTION)
+        MAX_CONNECTION = MIN_THREAD_TRESHOLD;
+    if (MIN_THREAD_TRESHOLD > MAX_CONNECTION)
+        error_found("get_command_line_options: maximum connections number is lower then minimum threads number!\n");
 }
 
 // Start server
-void startServer(void) {
+void start_WebServer(void) {
 
-    struct sockaddr_in server_addr;
+    struct sockaddr_in server_address;
 
-    if ((LISTENsd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-        error_found("Error in socket\n");
+    if ((LISTEN_SOCKET_DESCRIPTOR = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+        error_found("start_WebServer: Error in socket\n");
 
     //sets the socket with all 0s
-    memset((void *) &server_addr, 0, sizeof(server_addr));
+    memset((void *) &server_address, 0, sizeof(server_address));
     //IPv4
-    (server_addr).sin_family = AF_INET;
+    (server_address).sin_family = AF_INET;
     //addresses must be in Network Byte Order
-    (server_addr).sin_addr.s_addr = htonl(INADDR_ANY);  // All available interface
-    (server_addr).sin_port = htons((unsigned short) PORT);
+    (server_address).sin_addr.s_addr = htonl(INADDR_ANY);  // All available interface
+    (server_address).sin_port = htons((unsigned short) PORT);
 
-    // To reuse a socket  //TODO watch this
+    // To reuse a socket
     int flag = 1;
-    if (setsockopt(LISTENsd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) != 0)
-        error_found("Error in setsockopt\n");
+    if (setsockopt(LISTEN_SOCKET_DESCRIPTOR, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) != 0)
+        error_found("start_WebServer: Error in setsockopt\n");
 
     errno = 0;
-    if (bind(LISTENsd, (struct sockaddr *) &server_addr, sizeof(server_addr)) < 0) {
+    if (bind(LISTEN_SOCKET_DESCRIPTOR, (struct sockaddr *) &server_address, sizeof(server_address)) < 0) {
         switch (errno) {
             //adress is protected and the user is not superuser
             case EACCES:
-                error_found("Choose another socket\n");
-
-            //the given address is already in use
-            case EADDRINUSE:
-                // NON PIU NECESSARIO GRAZIE A SO_REUSEADDR (vedi sopra)
-                //error_found("Address in use\n");
+                error_found("start_WebServer: Choose another socket\n");
 
             //the socket is already bound to an address
             case EINVAL:
-                error_found("The socket is already bound to an address\n");
+                error_found("start_WebServer: The socket is already bound to an address\n");
 
             default:
-                error_found("Error in bind\n");
+                error_found("start_WebServer: Error in bind\n");
         }
     }
 
     // listen for incoming connections
-    if (listen(LISTENsd, MAXCONN) != 0)
-        error_found("Error in listen\n");
+    if (listen(LISTEN_SOCKET_DESCRIPTOR, MAX_CONNECTION) != 0)
+        error_found("start_WebServer: Error in listen\n");
 
-    fprintf(stdout, "-Server's socket correctly created with number: %d\n", PORT);
+    fprintf(stdout, "-Servers socket created with number: %d\n", PORT);
 }
 
 /*void *map_file(char *path, off_t *size) {
@@ -496,16 +485,17 @@ void startServer(void) {
     return map;
 }*/
 
-void check_and_build(char *s, char **html, size_t *dim) {
+void check_and_build(char *s, char **html, size_t *dim) {   //TODO change
 
     char *k = "<b>%s</b><br><br><a href=\"%s\"><img src=\"\\%s\" height=\"130\" weight=\"100\"></a><br><br><br><br>";;
+    //char *k = "<b>%s</b><br><br><a href=\"%s\"></a><br><br><br><br>";;
 
     size_t len = strlen(*html);
     if (len + DIM >= *dim * DIM) {
         ++*dim;
         *html = realloc(*html, *dim * DIM);
         if (!*html)
-            error_found("Error in realloc\n");
+            error_found("check_and_build: Error in realloc\n");
     }
 
     char *q = *html + len;
@@ -515,337 +505,326 @@ void check_and_build(char *s, char **html, size_t *dim) {
 // Used to get information from a file on the file system
 //  check values: 1 for check directory
 //                0 for check regular files
-void get_info(struct stat *buf, char *path, int check) {
+void get_file_info(struct stat *stat_buf, char *path, int check) {
 
-    memset(buf, (int) '\0', sizeof(struct stat));
+    memset(stat_buf, (int) '\0', sizeof(struct stat));
     /*char mode[] = "0777";
     int permissions;
     permissions = strtol(mode, 0, 8);
     errno = 0;
     if (chmod(path, permissions)) {
         fprintf(stderr, "get_info(chmod): errno is: %s\n", strerror(errno));
-        error_found("get_info: failed giving permission to file\n");
+        error_found("get_file_info: failed giving permission to file\n");
     }*/
     errno = 0;
-    if (stat(path, buf) != 0) {
+    if (stat(path, stat_buf) != 0) {
         if (errno == ENAMETOOLONG)
-            error_found("get_info: Path too long\n");
-        mode_t bits = buf->st_mode;
-        if((bits & S_IRUSR) == 0){
-            fprintf(stderr, "get_info: User doesn't have read privilages\n");
+            error_found("get_file_info: Path too long\n");
+        mode_t permission_bits = stat_buf->st_mode;
+        if((permission_bits & S_IRUSR) == 0){
+            fprintf(stderr, "get_file_info: User doesn't have read privilages\n");
         }
-        fprintf(stderr, "get_info: path is: %s\n", path);
-        fprintf(stderr, "get_info: errno is: %s\n", strerror(errno));
-        error_found("get_info: Invalid path\n");
+        error_found("get_file_info: Invalid path\n");
     }
     if (check) {
-        if (!S_ISDIR((*buf).st_mode)) {
-            error_found("get_info: Argument -l: The path is not a directory!\n");
+        if (!S_ISDIR((*stat_buf).st_mode)) {
+            error_found("get_file_info: Argument -l: The path is not a directory!\n");
         }
     } else {
-        if (!S_ISREG((*buf).st_mode)) {
-            error_found("get_info: Non-regular files can not be analysed!\n");
+        if (!S_ISREG((*stat_buf).st_mode)) {
+            error_found("get_file_info: Non-regular files can not be analysed!\n");
         }
     }
 }
 
 // Used to fill img dynamic structure
-void alloc_r_img(struct image **h, char *path) {
+void build_img_struct(struct image_struct **img, char *path) {
 
     char new_path[DIM];
     memset(new_path, (int) '\0', DIM);
-    struct image *k = malloc(sizeof(struct image));
-    if (!k)
-        error_found("Error in malloc\n");
-    memset(k, (int) '\0', sizeof(struct image));
+    struct image_struct *z = malloc(sizeof(struct image_struct));
+    if (!z)
+        error_found("build_img_struct: Error in malloc\n");
+    memset(z, (int) '\0', sizeof(struct image_struct));
 
     char *name = strrchr(path, '/');
     if (!name) {
         if (!strncmp(path, "favicon.ico", 11)) {
-            sprintf(new_path, "%s/%s", IMG_PATH, path);
-            strcpy(k->name, path);
+            sprintf(new_path, "%s/%s", images_path, path);
+            strcpy(z->name, path);
             path = new_path;
         } else {
-            error_found("alloc_r_img: Error analyzing file");
+            error_found("build_img_struct: Error analyzing file");
         }
     } else {
-        strcpy(k->name, ++name);
+        strcpy(z->name, ++name);
     }
 
     struct stat statbuf;
-    //fprintf(stderr, "alloc_r_img: path is: %s\n", path);
-    get_info(&statbuf, path, 0);
+    get_file_info(&statbuf, path, 0);
+    z->resized_image_size = (size_t) statbuf.st_size;
+    z->cached_image = NULL;
 
-    k->size_r = (size_t) statbuf.st_size;
-    k->img_c = NULL;
-
-    if (!*h) {
-        k->next_img = *h;
-        *h = k;
+    if (!*img) {
+        z->next_image = *img;
+        *img = z;
     } else {
-        k->next_img = (*h)->next_img;
-        (*h)->next_img = k;
+        z->next_image = (*img)->next_image;
+        (*img)->next_image = z;
     }
 }
 
-void check_images(int perc) {
+void check_WebServer_images(int perc) {
 
     DIR *dir;
-    struct dirent *ent;
+    struct dirent *dirent;
     char *k;
 
     //opens the target directory, returns a ptr to the directory stream
     errno = 0;
-    dir = opendir(IMG_PATH);
+    dir = opendir(images_path);
     if (!dir) {
         if (errno == EACCES)
-            error_found("Permission denied\n");
-        error_found("Error in opendir\n");
+            error_found("check_WebServer_images: Permission denied\n");
+        error_found("check_WebServer_images: Error in opendir\n");
     }
 
-    int dim = 4;
-    char *html = malloc((size_t)dim * DIM);
+    int images_number = 5;
+    char *html = malloc((size_t)images_number * DIM);
     if (!html)
-        error_found("Error in malloc\n");
-    memset(html, (int) '\0', (size_t) dim * DIM * sizeof(char));
+        error_found("check_WebServer_images: Error in malloc\n");
+    memset(html, (int) '\0', (size_t) images_number * DIM * sizeof(char));
 
     // writes a string that will be the html home page
     // %s page's title; %s header; %s text.
-    char *h = "<!DOCTYPE html><html><head><meta charset=\"utf-8\" /><title>%s</title><style type=\"text/css\"></style><script type=\"text/javascript\"></script></head><body background=\"\"><h1>%s</h1><br><br><h3>%s</h3><hr><br>";
-    sprintf(html, h, "WebServerProject", "Welcome", "Select an image below");
-    /*    // %s image's path; %d resizing percentage
+    char *html_header = "<!DOCTYPE html><html><head><meta charset=\"utf-8\" /><title>%s</title><style type=\"text/css\"></style><script type=\"text/javascript\"></script></head><body background=\"\"><h1>%s</h1><br><br><h3>%s</h3><hr><br>";
+    sprintf(html, html_header, "WebServer", "Choose an image_struct", "It will be resized for your own device!");
+    /*    // %s image_struct's path; %d resizing percentage
     char *convert = "convert %s -resize %d%% %s;exit";*/
-    size_t len_h = strlen(html), new_len_h;
+    size_t header_length = strlen(html), new_header_length;
 
-    struct image **i = &img;
-    //input is path to source image, output to resized
-    char input[DIM], output[DIM];
-    memset(input, (int) '\0', DIM); memset(output, (int) '\0', DIM);
+    struct image_struct **image = &image_struct;
+    char source_image_path[DIM], resized_image_path[DIM];
+    memset(source_image_path, (int) '\0', DIM); memset(resized_image_path, (int) '\0', DIM);
     //readdir read the sirectory stream created by opendir as a sequence of dirent structs
     fprintf(stdout, "-Please wait while resizing images...\n");
-    while ((ent = readdir(dir)) != NULL) {
+    while ((dirent = readdir(dir)) != NULL) {
         //DT_REG means a regular file
-        if (ent -> d_type == DT_REG) {
+        if (dirent -> d_type == DT_REG) {
             /*If a file is appended with a tilde~,
              * it only means that it is a backup created by a text editor
              * or similar program*/
-            if ((k = strrchr(ent -> d_name, '~')) != NULL) {
+            if ((k = strrchr(dirent -> d_name, '~')) != NULL) {
                 //tilde is found
-                fprintf(stderr, "File '%s' was skipped\n", ent -> d_name);
+                fprintf(stderr, "check_WebServer_images: File '%s' was skipped\n", dirent -> d_name);
                 continue;
             }
 
-            if ((k = strrchr(ent -> d_name, '.')) != NULL) {
+            if ((k = strrchr(dirent -> d_name, '.')) != NULL) {
                 if (strcmp(k, ".db") == 0) {
-                    fprintf(stderr, "File '%s' was skipped\n", ent -> d_name);
+                    fprintf(stderr, "check_WebServer_images: File '%s' was skipped\n", dirent -> d_name);
                     continue;
                 }
                 if (strcmp(k, ".gif") != 0 && strcmp(k, ".GIF") != 0 &&
                     strcmp(k, ".jpg") != 0 && strcmp(k, ".JPG") != 0 &&
                     strcmp(k, ".png") != 0 && strcmp(k, ".PNG") != 0)
-                    fprintf(stderr, "Warning: file '%s' may have an unsupported format\n", ent -> d_name);
+                    fprintf(stderr, "check_WebServer_images: Warning: file '%s' may have an unsupported format\n", dirent -> d_name);
             } else {
-                fprintf(stderr, "Warning: file '%s' may have an unsupported format\n", ent -> d_name);
+                fprintf(stderr, "check_WebServer_images: Warning: file '%s' format in not supported\n", dirent -> d_name);
             }
 
-            if (resize_image(IMG_PATH, ent -> d_name, perc, tmp_resized, ent -> d_name))
-                error_found("check_image: Error resizing images\n");
+            if (resize_image(images_path, dirent -> d_name, perc, resized_tmp_dir, dirent -> d_name))
+                error_found("check_WebServer_images: Error resizing images\n");
 
             /*            char command[DIM * 2];
             memset(command, (int) '\0', DIM * 2);
-            sprintf(input, "%s/%s", IMG_PATH, ent -> d_name);
-            sprintf(output, "%s/%s", tmp_resized, ent -> d_name);
-            sprintf(command, convert, input, perc, output);
+            sprintf(source_image_path, "%s/%s", images_path, ent -> d_name);
+            sprintf(resized_image_path, "%s/%s", resized_tmp_dir, ent -> d_name);
+            sprintf(command, convert, source_image_path, perc, resized_image_path);
 
             if (system(command))
                 error_found("check_image: Error resizing images\n");*/
 
-            //in input there in no / because is already in IMG_PATH
-            sprintf(input, "%s%s", IMG_PATH, ent -> d_name);
-            sprintf(output, "%s/%s", tmp_resized, ent -> d_name);
-            alloc_r_img(i, output);
-            i = &(*i) -> next_img;
-            check_and_build(ent -> d_name, &html, &dim);
+            //in source_image_path there in no / because is already in images_path
+            sprintf(source_image_path, "%s%s", images_path, dirent -> d_name);
+            sprintf(resized_image_path, "%s/%s", resized_tmp_dir, dirent -> d_name);
+            build_img_struct(image, resized_image_path);
+            image = &(*image) -> next_image;
+            check_and_build(dirent -> d_name, &html, &images_number);
         }
     }
 
-    new_len_h = strlen(html);
-    if (len_h == new_len_h)
-        error_found("There are no images in the specified directory\n");
+    new_header_length = strlen(html);
+    if (header_length == new_header_length)
+        error_found("check_WebServer_images: There are no images in the specified directory\n");
 
-    h = "</body></html>";
-    if (new_len_h + DIM2 / 4 > dim * DIM) {
-        ++dim;
-        html = realloc(html, (size_t) dim * DIM);
+    html_header = "</body></html>";
+    if (new_header_length + DIM2 / 4 > images_number * DIM) {
+        ++images_number;
+        html = realloc(html, (size_t) images_number * DIM);
         if (!html)
-            error_found("Checking images: Error in realloc\n");
-        memset(html + new_len_h, (int) '\0', (size_t) dim * DIM - new_len_h);
+            error_found("check_WebServer_images: Checking images: Error in realloc\n");
+        memset(html + new_header_length, (int) '\0', (size_t) images_number * DIM - new_header_length);
     }
     k = html;
     k += strlen(html);
-    strcpy(k, h);
+    strcpy(k, html_header);
 
-    HTML[0] = html;
+    HTML_PAGES[0] = html;
 
     if (closedir(dir))
-        error_found("Error in closedir\n");
+        error_found("check_WebServer_images: Error in closedir\n");
 
-    fprintf(stdout, "-Images correctly resized in: '%s' with percentage: %d%%\n", tmp_resized, perc);
+    fprintf(stdout, "-Images resized in: '%s' with percentage: %d%%\n", resized_tmp_dir, perc);
 }
 
-// Used to map in memory HTML files which respond with
+// Used to map in memory HTML_PAGES files which respond with
 //  error 400 or error 404
-void map_html_error(char *HTML[3]) {
+void build_error_pages(char **HTML) {
 
-    char *s = "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\"><html><head><title>%s</title></head><body><h1>%s</h1><p>%s</p></body></html>\0";
+    char *s = "<!DOCTYPE HTML_PAGES PUBLIC \"-//IETF//DTD HTML_PAGES 2.0//EN\"><html><head><title>%s</title></head><body><h1>%s</h1><p>%s</p></body></html>\0";
     size_t len = strlen(s) + 2 * DIM2 * sizeof(char);
 
-    char *mm1 = malloc(len);
-    char *mm2 = malloc(len);
-    if (!mm1 || !mm2)
+    char *not_found_404 = malloc(len);
+    char *bad_request_400 = malloc(len);
+    if (!not_found_404 || !bad_request_400)
         error_found("Error in malloc\n");
-    memset(mm1, (int) '\0', len); memset(mm2, (int) '\0', len);
-    sprintf(mm1, s, "404 Not Found", "404 Not Found", "The requested URL was not found on this server.");
-    sprintf(mm2, s, "400 Bad Request", "Bad Request", "Your browser sent a request that this server could not understand.");
-    HTML[1] = mm1;
-    HTML[2] = mm2;
+    memset(not_found_404, (int) '\0', len); memset(bad_request_400, (int) '\0', len);
+    sprintf(not_found_404, s, "404 Not Found", "404 Not Found", "The requested URL is not on this server.");
+    sprintf(bad_request_400, s, "400 Bad Request", "Bad Request", "Your browser sent a request this server could not understand.");
+    HTML[1] = not_found_404;
+    HTML[2] = bad_request_400;
 }
 
-/*takes 9 arguments: argc, argv, 3 mutex, 3 condition and a pointer toa th_sync struct.
+/*takes 9 arguments: argc, argv, 3 mutex, 3 condition and a pointer toa threads_sync_struct struct.
  * */
-void init(int argc, char **argv, pthread_mutex_t *m, pthread_mutex_t *m2,
-          pthread_mutex_t *m3, pthread_cond_t *th_start, pthread_cond_t *full,
-          struct th_sync *d) {
+void init(int argc, char **argv, pthread_mutex_t *mtx_sync_conditions, pthread_mutex_t *mtx_cache_access,
+          pthread_mutex_t *mtx_thread_conn_number, pthread_cond_t *th_start, pthread_cond_t *full,
+          struct threads_sync_struct *d) {
 
-    // Default Log's path;
-    char LOG_PATH[DIM],
-            IMAGES_PATH[DIM];
-    //LOG_PATH is the path to log file, IMAGES_PATH the one to images
-    //./ is current dir
-    //sets the memory with 0s
+    char LOG_PATH[DIM], IMAGES_PATH[DIM];
     memset(LOG_PATH, (int) '\0', DIM);
     memset(IMAGES_PATH, (int) '\0', DIM);
     strcpy(LOG_PATH, ".");
     strcpy(IMAGES_PATH, ".");
-    //an array of 2 ptr
-    char *PATH[2];
-    PATH[0] = LOG_PATH;
-    PATH[1] = IMAGES_PATH;
-    int perc = 20;
+    char *PATHS[2];
+    PATHS[0] = LOG_PATH;
+    PATHS[1] = IMAGES_PATH;
+    int resize_percentage = 20;
 
-    //get the manual config options by coomand line arg
-    get_opt(argc, argv, PATH, &perc);
+    //get the manual config options by command line arg
+    get_command_line_options(argc, argv, PATHS);
 
     //initializes mutexes and conditions
-    if (pthread_mutex_init(m, NULL) != 0 ||
-        pthread_mutex_init(m2, NULL) != 0 ||
-        pthread_mutex_init(m3, NULL) != 0 ||
+    if (pthread_mutex_init(mtx_sync_conditions, NULL) != 0 ||
+        pthread_mutex_init(mtx_cache_access, NULL) != 0 ||
+        pthread_mutex_init(mtx_thread_conn_number, NULL) != 0 ||
         pthread_cond_init(th_start, NULL) != 0 ||
         pthread_cond_init(full, NULL) != 0)
-        error_found("Error in pthread_mutex_init or pthread_cond_init\n");
+        error_found("init: Error in pthread_mutex_init or pthread_cond_init\n");
 
-    //initialize th_sync fields
-    d->connections = d->slot_c = d->to_kill = d->th_act = 0;
-    d -> mtx_sync_conditions = m;
-    d -> mtx_cache_access = m2;
-    d -> mtx_thread_conn_number = m3;
+    //initialize threads_sync_struct fields
+    d->connections = d->client_socket_element = d->threads_to_kill = d->active_threads = 0;
+    d -> mtx_sync_conditions = mtx_sync_conditions;
+    d -> mtx_cache_access = mtx_cache_access;
+    d -> mtx_thread_conn_number = mtx_thread_conn_number;
     d -> th_start = th_start;
-    d -> th_act_thr = MINTH;
-    d -> full = full;
-    img = NULL;
+    d -> min_active_threads_treshold = MIN_THREAD_TRESHOLD;
+    d -> server_full = full;
+    image_struct = NULL;
 
-    d -> clients = malloc(sizeof(int) * MAXCONN);
-    d -> threads_cond_list = malloc(sizeof(pthread_cond_t) * MAXCONN);
-    if (d->clients == NULL || d->threads_cond_list == NULL) {
-        //if (!d -> clients || !d -> new_c)
-        error_found("Error in malloc\n");
+    d -> client_socket_list = malloc(sizeof(int) * MAX_CONNECTION);
+    d -> threads_cond_list = malloc(sizeof(pthread_cond_t) * MAX_CONNECTION);
+    if (d->client_socket_list == NULL || d->threads_cond_list == NULL) {
+        //if (!d -> client_socket_list || !d -> new_c)
+        error_found("init: Error in malloc\n");
     } else {
-        memset(d->clients, (int) '\0', sizeof(int) * MAXCONN);
-        memset(d->threads_cond_list, (int) '\0', sizeof(pthread_cond_t) * MAXCONN);
+        memset(d->client_socket_list, (int) '\0', sizeof(int) * MAX_CONNECTION);
+        memset(d->threads_cond_list, (int) '\0', sizeof(pthread_cond_t) * MAX_CONNECTION);
     }
     // -1 := slot with thread initialized; -2 := empty slot.
     int i;
-    for (i = 0; i < MAXCONN; ++i) {
-        d -> clients[i] = -2;
+    for (i = 0; i < MAX_CONNECTION; ++i) {
+        d -> client_socket_list[i] = -2;
 
         pthread_cond_t cond;
         if (pthread_cond_init(&cond, NULL) != 0)
-            error_found("Error in pthread_cond_init\n");
+            error_found("init: Error in pthread_cond_init\n");
         d -> threads_cond_list[i] = cond;
     }
 
-    startServer();
-    LOG = open_file(LOG_PATH);
+    start_WebServer();
+    LOG = open_LOG_file(LOG_PATH);
     char start_server[DIM];
     memset(start_server, (int) '\0', DIM);
-    char *k = "\t\tServer started at port:";
-    sprintf(start_server, "%s %d\n", k, PORT);
+    char *log_message = "\t\tServer started at port:";
+    sprintf(start_server, "%s %d\n", log_message, PORT);
     write_log(start_server);
 
     // Create tmp folder for resized and cached images
-    if (!mkdtemp(tmp_resized) || !mkdtemp(tmp_cache))
-        error_found("Error in mkdtmp\n");
+    if (!mkdtemp(resized_tmp_dir) || !mkdtemp(cache_tmp_dir))
+        error_found("init: Error in mkdtmp\n");
 
     errno = 0;
 
-/*    if (chmod(tmp_resized, 777) || chmod(tmp_cache, 777)) {
+/*    if (chmod(resized_tmp_dir, 777) || chmod(cache_tmp_dir, 777)) {
         //fprintf(stderr, "%d\n", errno);
         error_found("Error giving permission to directory");
     }*/
 
-    if (CACHE_N > 0) {
-        fprintf(stdout, "-Cache size: %d images; located in '%s'\n", CACHE_N, tmp_cache);
+    if (CACHE_COUNTER > 0) {
+        fprintf(stdout, "-Cache size: %d; located in '%s'\n", CACHE_COUNTER, cache_tmp_dir);
     } else {
-        fprintf(stdout, "-Cache size: Unlimited; located in '%s'\n", tmp_cache);
+        fprintf(stdout, "-Cache size: Unlimited; located in '%s'\n", cache_tmp_dir);
     }
 
-    strcpy(IMG_PATH, IMAGES_PATH);
-    check_images(perc);
-    map_html_error(HTML);
+    strcpy(images_path, IMAGES_PATH);
+    check_WebServer_images(resize_percentage);
+    build_error_pages(HTML_PAGES);
 }
 
 // Used to remove file from file system
-void rm_link(char *path) {
+void remove_link(char *path) {
 
     //removes the name from FS, if it was the last occurrence file is deleted
     if (unlink(path)) {
         errno = 0;
         switch (errno) {
             case EBUSY:
-                exit_on_error("File can not be unlinked: It is being use by the system\n");
+                error_found("remove_link: File cannot be unlinked: It is being used by the system\n");
 
             case EIO:
-                exit_on_error("File can not be unlinked: An I/O error occurred\n");
+                error_found("remove_link: File cannot be unlinked: An I/O error occurred\n");
 
             case ENAMETOOLONG:
-                exit_on_error("File can not be unlinked: Pathname was too long\n");
+                error_found("remove_link: File cannot be unlinked: Pathname too long\n");
 
             case ENOMEM:
-                exit_on_error("File can not be unlinked: Insufficient kernel memory was available\n");
+                error_found("remove_link: File cannot be unlinked: Insufficient kernel memory\n");
 
             case EPERM:
-                exit_on_error("File can not be unlinked: The file system does not allow unlinking of files\n");
+                error_found("remove_link: File cannot be unlinked: The file system does not allow unlinking of files\n");
 
             case EROFS:
-                exit_on_error("File can not be unlinked: Pathname refers to a file on a read-only file system\n");
+                error_found("remove_link: File cannot be unlinked: File is read-only\n");
 
             default:
-                exit_on_error("File can not be unlinked: Error in unlink\n");
+                error_found("remove_link: File cannot be unlinked: Error unlinking\n");
         }
     }
 }
 
 // Used to remove directory from file system
-void rm_dir(char *directory) {
+void remove_directory(char *directory) {
 
     DIR *dir;
-    struct dirent *ent;
+    struct dirent *dirent;
 
     fprintf(stdout, "-Removing '%s'\n", directory);
     char *verify = strrchr(directory, '/') + 1;
     //NULL if / is not found
     if (!verify)
-        exit_on_error("rm_dir: Unexpected error in strrchr\n");
+        error_found("remove_directory: Unexpected error in strrchr\n");
     verify = strrchr(directory, '.') + 1;
     //not a thing we want to remove
     if (!strncmp(verify, "XXXXXX", 7))
@@ -855,129 +834,129 @@ void rm_dir(char *directory) {
     dir = opendir(directory);
     if (!dir) {
         if (errno == EACCES)
-            exit_on_error("Permission denied\n");
-        exit_on_error("rm_dir: Error in opendir\n");
+            error_found("remove_directory: Permission denied\n");
+        error_found("remove_directory: Error in opendir\n");
     }
 
-    while ((ent = readdir(dir)) != NULL) {
+    while ((dirent = readdir(dir)) != NULL) {
         //deletes all files in directory
-        if (ent -> d_type == DT_REG) {
+        if (dirent -> d_type == DT_REG) {
             char buf[DIM];
             memset(buf, (int) '\0', DIM);
-            sprintf(buf, "%s/%s", directory, ent -> d_name);
-            fprintf(stderr, "%s\n", ent ->d_name);
-            rm_link(buf);
+            sprintf(buf, "%s/%s", directory, dirent -> d_name);
+            fprintf(stderr, "%s\n", dirent ->d_name);
+            remove_link(buf);
         }
     }
 
     if (closedir(dir))
-        exit_on_error("Error in closedir\n");
+        error_found("remove_directory: Error in closedir\n");
 
     errno = 0;
     if (rmdir(directory)) {
         switch (errno) {
             case EBUSY:
-                exit_on_error("Directory not removed: resource busy\n");
+                error_found("remove_directory: Directory not removed: Resource busy\n");
 
             case ENOMEM:
-                exit_on_error("Directory not removed: Insufficient kernel memory\n");
+                error_found("remove_directory: Directory not removed: Insufficient kernel memory\n");
 
             case EROFS:
-                exit_on_error("Directory not removed: Pathname refers to a directory on a read-only file system\n");
+                error_found("remove_directory: Directory not removed: Directory is read-only\n");
 
             case ENOTEMPTY:
-                exit_on_error("Directory not removed: Directory not empty!\n");
+                error_found("remove_directory: Directory not removed: Directory not empty\n");
 
             default:
-                exit_on_error("Error in rmdir\n");
+                error_found("remove_directory: Error in rmdir\n");
         }
     }
 }
 
 // Used to free memory allocated from malloc/realloc functions
-void free_mem() {
+void free_memory() {   //TODO i'm here
 
-    free(HTML[0]);
-    free(HTML[1]);
-    free(HTML[2]);
-    free(thds.clients);
-    free(thds.threads_cond_list);
-    //CACHE_N can't be 0
-    if (CACHE_N >= 0 && thds.cache_hit_head && thds.cache_hit_tail) {
-        struct cache_hit *to_be_removed;
+    free(HTML_PAGES[0]);
+    free(HTML_PAGES[1]);
+    free(HTML_PAGES[2]);
+    free(thread_struct.client_socket_list);
+    free(thread_struct.threads_cond_list);
+    //CACHE_COUNTER can't be 0
+    if (CACHE_COUNTER >= 0 && thread_struct.cached_name_list_head && thread_struct.cached_name_list_tail) {
+        struct cached_name_list_element *to_be_removed;
         //till tail is NULL
-        while (thds.cache_hit_tail) {
-            to_be_removed = thds.cache_hit_tail;
-            thds.cache_hit_tail = thds.cache_hit_tail->next_hit;
+        while (thread_struct.cached_name_list_tail) {
+            to_be_removed = thread_struct.cached_name_list_tail;
+            thread_struct.cached_name_list_tail = thread_struct.cached_name_list_tail->next_cached_image_name;
             free(to_be_removed);
         }
     }
 
-    rm_dir(tmp_resized);
-    rm_dir(tmp_cache);
+    remove_directory(resized_tmp_dir);
+    remove_directory(cache_tmp_dir);
 }
 
 // Thread which control stdin to recognize user's input
-void *catch_command(void *arg) {
+void *catch_user_command(void *arg) {
 
-    struct th_sync *k = (struct th_sync *) arg;
+    struct threads_sync_struct *threads_sync_struct = (struct threads_sync_struct *) arg;
 
     printf("\n%s\n", user_command);
     while (1) {
-        char cmd[2];
-        int conn, n_thds;
-        memset(cmd, (int) '\0', 2);
-        if (fscanf(stdin, "%s", cmd) != 1)
-            error_found("Error in fscanf\n");
+        char command[2];
+        int connections_number, threads_number;
+        memset(command, (int) '\0', 2);
+        if (fscanf(stdin, "%s", command) != 1)
+            error_found("catch_user_command: Error in fscanf\n");
 
-        if (strlen(cmd) != 1) {
+        if (strlen(command) != 1) {
             printf("%s\n", user_command);
         } else {
-            if (cmd[0] == 's' || cmd[0] == 'S') {
-                lock(thds.mtx_thread_conn_number);
-                conn = thds.connections; n_thds = thds.th_act;
-                unlock(thds.mtx_thread_conn_number);
+            if (command[0] == 's' || command[0] == 'S') {
+                lock(thread_struct.mtx_thread_conn_number);
+                connections_number = thread_struct.connections; threads_number = thread_struct.active_threads;
+                unlock(thread_struct.mtx_thread_conn_number);
                 fprintf(stdout, "\nConnections' number: %d\n"
-                        "Threads running: %d\n\n", conn, n_thds);
+                        "Threads running: %d\n\n", connections_number, threads_number);
                 continue;
-            } else if (cmd[0] == 'f' || cmd[0] == 'F') {
+            } else if (command[0] == 'f' || command[0] == 'F') {
                 errno = 0;
                 if (fflush(LOG)) {
                     if (errno == EBADF)
-                        fprintf(stderr, "Error in fflush: Stream is not an open stream, or is not open for writing.\n");
-                    fprintf(stderr, "catch_command: Unexpected error in fflush\n");
+                        fprintf(stderr, "catch_user_command: Error in fflush: Stream is not open, at least not for writing.\n");
+                    fprintf(stderr, "catch_user_command: Unexpected error in fflush\n");
                 }
                 fprintf(stdout, "Log file updated\n");
                 continue;
-            } else if (cmd[0] == 'q' || cmd[0] == 'Q') {
+            } else if (command[0] == 'q' || command[0] == 'Q') {
                 fprintf(stdout, "-Closing server\n");
 
                 errno = 0;
                 // Kernel may still hold some resources for a period (TIME_WAIT)
-                if (close(LISTENsd) != 0) {
+                if (close(LISTEN_SOCKET_DESCRIPTOR) != 0) {
                     if (errno == EIO)
-                        error_found("I/O error occurred\n");
-                    error_found("Error in close\n");
+                        error_found("catch_user_command: I/O error occurred\n");
+                    error_found("catch_user_command: Error in close\n");
                 }
 
                 int i = 0;
-                for (; i < MAXCONN; ++i) {
-                    if (k -> clients[i] >= 0) {
-                        //clients are sockets
-                        if (close(k -> clients[i]) != 0) {
+                for (; i < MAX_CONNECTION; ++i) {
+                    if (threads_sync_struct -> client_socket_list[i] >= 0) {
+                        //client_socket_list are sockets
+                        if (close(threads_sync_struct -> client_socket_list[i]) != 0) {
                             switch (errno) {
                                 case EIO:
-                                    error_found("I/O error occurred\n");
+                                    error_found("catch_user_command: I/O error occurred\n");
 
                                 case ENOTCONN:
-                                    error_found("The socket is not connected\n");
+                                    error_found("catch_user_command: The socket is not connected\n");
 
                                 case EBADF:
-                                    fprintf(stderr, "Bad file number. Probably client has disconnected\n");
+                                    fprintf(stderr, "catch_user_command: Bad file number. Maybe client has disconnected\n");
                                     break;
 
                                 default:
-                                    error_found("Error in close or shutdown\n");
+                                    error_found("catch_user_command: Error in close\n");
                             }
                         }
                     }
@@ -987,15 +966,13 @@ void *catch_command(void *arg) {
                 errno = 0;
                 if (fflush(LOG)) {
                     if (errno == EBADF)
-                        fprintf(stderr, "Error in fflush: Stream is not an open stream, or is not open for writing.\n");
-                    exit(EXIT_FAILURE);
+                        error_found("catch_user_command: Error in fflush: Stream is not open, at least not for writing.\n");
                 }
 
                 if (fclose(LOG) != 0)
-                    error_found("Error in fclose\n");
+                    error_found("catch_user_command: Error in fclose\n");
 
-                free_mem();
-
+                free_memory();
                 exit(EXIT_SUCCESS);
             }
             printf("%s\n\n", user_command);
@@ -1003,38 +980,38 @@ void *catch_command(void *arg) {
     }
 }
 
-void create_th(void * (*routine) (void *), void *k) {
+void create_thread(void *(*routine)(void *), void *arg) {
 
     pthread_t tid;
     errno = 0;
-    if (pthread_create(&tid, NULL, routine, k) != 0) {
+    if (pthread_create(&tid, NULL, routine, arg) != 0) {
         if (errno == EAGAIN || errno == ENOMEM)
-            error_found("Insufficient resources to create another thread\n");
+            error_found("create_thread: Insufficient resources to create another thread\n");
         else
-            error_found("Error in pthread_create\n");
+            error_found("create_thread: Error in pthread_create\n");
     }
 }
 
 // Initialize threads
-void init_th(int threads_to_create, void *(*routine) (void *), void *arg) {
+void initialize_thread(int threads_to_create, void *(*routine)(void *), void *arg) {
 
-    struct th_sync *k = (struct th_sync *) arg;
+    struct threads_sync_struct *threads_sync_struct = (struct threads_sync_struct *) arg;
 
     int i, j;
-    lock(k -> mtx_sync_conditions);
-    for (i = j = 0; i < threads_to_create && j < MAXCONN; ++j) {
+    lock(threads_sync_struct -> mtx_sync_conditions);
+    for (i = j = 0; i < threads_to_create && j < MAX_CONNECTION; ++j) {
         // -1 := slot with thread initialized; -2 := empty slot.
-        if (k -> clients[j] == -2) {
-            k -> slot_c = j;
-            create_th(routine, arg);
+        if (threads_sync_struct -> client_socket_list[j] == -2) {
+            threads_sync_struct -> client_socket_element = j;
+            create_thread(routine, arg);
 
-            k -> clients[j] = -3;
-            wait_t(k -> th_start, k -> mtx_sync_conditions);
+            threads_sync_struct -> client_socket_list[j] = -3;
+            wait_t(threads_sync_struct -> th_start, threads_sync_struct -> mtx_sync_conditions);
             ++i;
         }
     }
-    k -> th_act += threads_to_create;
-    unlock(k -> mtx_sync_conditions);
+    threads_sync_struct -> active_threads += threads_to_create;
+    unlock(threads_sync_struct -> mtx_sync_conditions);
 }
 
 /*
@@ -1047,156 +1024,100 @@ void init_th(int threads_to_create, void *(*routine) (void *), void *arg) {
  *  Accept type
  *  Cache-Control
  */
-void split_str(char *http_req_buf, char **line_req) {
+void split_HTTP_message(char *HTTP_request_buffer, char **line_request) {
 
-    char *msg_type[4];
-    msg_type[0] = "Connection: ";
-    msg_type[1] = "User-Agent: ";
-    msg_type[2] = "Accept: ";
-    msg_type[3] = "Cache-Control: ";
+    char *HTTP_header_format[4];
+    HTTP_header_format[0] = "Connection: ";
+    HTTP_header_format[1] = "User-Agent: ";
+    HTTP_header_format[2] = "Accept: ";
+    HTTP_header_format[3] = "Cache-Control: ";
     // HTTP message type
-    line_req[0] = strtok(http_req_buf, " ");
+    line_request[0] = strtok(HTTP_request_buffer, " ");
     // Requested object
-    line_req[1] = strtok(NULL, " ");
+    line_request[1] = strtok(NULL, " ");
     // HTTP version
-    line_req[2] = strtok(NULL, "\n");
+    line_request[2] = strtok(NULL, "\n");
     //if HTTP version is not NULL
-    if (line_req[2]) {
+    if (line_request[2]) {
         //replace \r with \0 at line's end
-        if (line_req[2][strlen(line_req[2]) - 1] == '\r')
-            line_req[2][strlen(line_req[2]) - 1] = '\0';
+        if (line_request[2][strlen(line_request[2]) - 1] == '\r')
+            line_request[2][strlen(line_request[2]) - 1] = '\0';
     }
     char *k;
     while ((k = strtok(NULL, "\n"))) {
         // Connection type
-        if (!strncmp(k, msg_type[0], strlen(msg_type[0]))) {
-            line_req[3] = k + strlen(msg_type[0]);
-            if (line_req[3][strlen(line_req[3]) - 1] == '\r')
-                line_req[3][strlen(line_req[3]) - 1] = '\0';
+        if (!strncmp(k, HTTP_header_format[0], strlen(HTTP_header_format[0]))) {
+            line_request[3] = k + strlen(HTTP_header_format[0]);
+            if (line_request[3][strlen(line_request[3]) - 1] == '\r')
+                line_request[3][strlen(line_request[3]) - 1] = '\0';
         }
             // User-Agent type
-        else if (!strncmp(k, msg_type[1], strlen(msg_type[1]))) {
-            line_req[4] = k + strlen(msg_type[1]);
-            if (line_req[4][strlen(line_req[4]) - 1] == '\r')
-                line_req[4][strlen(line_req[4]) - 1] = '\0';
+        else if (!strncmp(k, HTTP_header_format[1], strlen(HTTP_header_format[1]))) {
+            line_request[4] = k + strlen(HTTP_header_format[1]);
+            if (line_request[4][strlen(line_request[4]) - 1] == '\r')
+                line_request[4][strlen(line_request[4]) - 1] = '\0';
         }
             // Accept format
-        else if (!strncmp(k, msg_type[2], strlen(msg_type[2]))) {
-            line_req[5] = k + strlen(msg_type[2]);
-            if (line_req[5][strlen(line_req[5]) - 1] == '\r')
-                line_req[5][strlen(line_req[5]) - 1] = '\0';
+        else if (!strncmp(k, HTTP_header_format[2], strlen(HTTP_header_format[2]))) {
+            line_request[5] = k + strlen(HTTP_header_format[2]);
+            if (line_request[5][strlen(line_request[5]) - 1] == '\r')
+                line_request[5][strlen(line_request[5]) - 1] = '\0';
         }
             // Cache-Control
-        else if (!strncmp(k, msg_type[3], strlen(msg_type[3]))) {
-            line_req[6] = k + strlen(msg_type[3]);
-            if (line_req[6][strlen(line_req[6]) - 1] == '\r')
-                line_req[6][strlen(line_req[6]) - 1] = '\0';
+        else if (!strncmp(k, HTTP_header_format[3], strlen(HTTP_header_format[3]))) {
+            line_request[6] = k + strlen(HTTP_header_format[3]);
+            if (line_request[6][strlen(line_request[6]) - 1] == '\r')
+                line_request[6][strlen(line_request[6]) - 1] = '\0';
         }
     }
 }
 
-// Used to send HTTP messages to clients
-ssize_t send_http_msg(int sock_fd, char *msg_to_send, ssize_t dim) {
+// Used to send HTTP messages to client_socket_list
+ssize_t send_HTTP_message(int socket_fd, char *msg_to_send, ssize_t msg_dim) {
 
     ssize_t sent = 0;
     char *msg = msg_to_send;
-    while (sent < dim) {
+    while (sent < msg_dim) {
         /*
          * Don't generate a SIGPIPE signal if the peer on a stream-oriented
          * socket  has  closed  the  connection.
          */
-        sent = send(sock_fd, msg, (size_t) dim, MSG_NOSIGNAL);
+        sent = send(socket_fd, msg, (size_t) msg_dim, MSG_NOSIGNAL);
 
         if (sent <= 0)
             break;
 
         msg += sent;
 
-        dim -= sent;
+        msg_dim -= sent;
 
     }
     return sent;
 }
 
-// Used to get image from file system
-char *get_img(char *name, size_t img_dim, char *directory) {
-
-    ssize_t left = 0;
-    int fd;
-    char *buf;
-    char path[strlen(name) + strlen(directory) + 1];
-    memset(path, (int) '\0', strlen(name) + strlen(directory) + 1);
-    sprintf(path, "%s/%s", directory, name);
-    if (path[strlen(path)] != '\0')
-        path[strlen(path)] = '\0';
-
-    errno = 0;
-    if ((fd = open(path, O_RDONLY)) == -1) {
-        switch (errno) {
-            case EACCES:
-                fprintf(stderr, "get_img: Permission denied\n");
-                break;
-
-            case EISDIR:
-                fprintf(stderr, "get_img: '%s' is a directory\n", name);
-                break;
-
-            case ENFILE:
-                fprintf(stderr, "get_img: The maximum allowable number of files is currently open in the system\n");
-                break;
-
-            case EMFILE:
-                fprintf(stderr, "get_img: File descriptors are currently open in the calling process\n");
-                break;
-
-            default:
-                fprintf(stderr, "Error in get_img\n");
-        }
-        return NULL;
-    }
-
-    errno = 0;
-    if (!(buf = malloc(img_dim))) {
-        fprintf(stderr, "errno: %d\t\timg_dim: %d\tget_img: Error in malloc\n", errno, (int) img_dim);
-        return buf;
-    } else {
-        memset(buf, (int) '\0', img_dim);
-    }
-
-    //if left == 0 exits while
-    while ((left = read(fd, buf + left, img_dim)))
-        img_dim -= left;
-
-    if (close(fd)) {
-        fprintf(stderr, "get_img: Error closing file\t\tFile Descriptor: %d\n", fd);
-    }
-
-    return buf;
-}
-
 /*
  * Find q factor from Accept header
  * Return values: -1 --> error
- *                -2 --> factor quality not specified in the header
+ *                -2 --> factor get_quality not specified in the header
  * NOTE: This server DOES NOT consider the extensions of the images,
  * so this function will analyze the resource type and NOT the subtype.
  */
-int quality(char *h_accept) {   //TODO never returns -2;
+int get_quality(char *HTTP_header_access_field) {
 
-    //h_accept is the accept type field from http_req
-    double images, others, q;
-    images = others = q = -2.0;
+    //HTTP_header_access_field is the accept type field from http_req
+    double images, others, quality;
+    images = others = quality = -2.0;
     char *chr;
-    char *t1 = strtok(h_accept, ",");
-    if (!h_accept || !t1)
-        return (int) (q *= 100);
+    char *token = strtok(HTTP_header_access_field, ",");
+    if (!HTTP_header_access_field || !token)
+        return (int) (quality *= 100);
 
     do {
-        while (*t1 == ' ')
-            ++t1;
+        while (*token == ' ')
+            ++token;
 
-        if (!strncmp(t1, "image", strlen("image"))) {
-            chr = strrchr(t1, '=');
+        if (!strncmp(token, "image_struct", strlen("image_struct"))) {
+            chr = strrchr(token, '=');
             // If not specified the 'q' value or if there was
             //  an error in transmission, the default
             //  value of 'q' is 1.0
@@ -1211,8 +1132,8 @@ int quality(char *h_accept) {   //TODO never returns -2;
                 if (errno != 0)
                     return -1;
             }
-        } else if (!strncmp(t1, "*", strlen("*"))) {
-            chr = strrchr(t1, '=');
+        } else if (!strncmp(token, "*", strlen("*"))) {
+            chr = strrchr(token, '=');
             if (!chr) {
                 others = 1.0;
             } else {
@@ -1222,44 +1143,44 @@ int quality(char *h_accept) {   //TODO never returns -2;
                     return -1;
             }
         }
-    } while ((t1 = strtok(NULL, ",")));
+    } while ((token = strtok(NULL, ",")));
 
     if (images > others || (others > images && images != -2.0))
-        q = images;
+        quality = images;
     else if (others > images && images == -2.0)
-        q = others;
+        quality = others;
     else
-        fprintf(stderr, "string: %s\t\tquality: Unexpected error\n", h_accept);
+        fprintf(stderr, "get_quality: string: %s\t\tquality: Unexpected error\n", HTTP_header_access_field);
 
-    return (int) (q *= 100);
+    return (int) (quality *= 100);
 }
 
 /*
- * http_fields refers to documentation in split_str function
+ * http_fields refers to documentation in split_HTTP_message function
  */
-int data_to_send(int sock, char **http_fields) {
+int manage_response(int socket_fd, char **HTTP_message_fields) {
 
     char *http_response = malloc(DIM * DIM * 2);
     if (!http_response)
-        error_found("Error in malloc\n");
+        error_found("manage_response: Error in malloc\n");
     memset(http_response, (int) '\0',DIM * DIM * 2);
 
     // %d status code; %s status code; %s date; %s server; %s content type; %d content's length; %s connection type
-    char *header = "HTTP/1.1 %d %s\r\nDate: %s\r\nServer: %s\r\nAccept-Ranges: bytes\r\n"
+    char *HTTP_header = "HTTP/1.1 %d %s\r\nDate: %s\r\nServer: %s\r\nAccept-Ranges: bytes\r\n"
             "Content-Type: %s\r\nContent-Length: %d\r\nConnection: %s\r\n\r\n";
     char *time = get_time();
-    char *server_name = "WebServerProject";  //TODO change project names
-    char *h;
+    char *server_name = "WebServer";
+    char *header_ptr;
 
-    if (!http_fields[0] || !http_fields[1] || !http_fields[2] ||
-        ((strncmp(http_fields[0], "GET", 3) && strncmp(http_fields[0], "HEAD", 4)) ||
-         (strncmp(http_fields[2], "HTTP/1.1", 8) && strncmp(http_fields[2], "HTTP/1.0", 8)))) {
-        sprintf(http_response, header, 400, "Bad Request", time, server_name, "text/html", strlen(HTML[2]), "close");
-        h = http_response;
-        h += strlen(http_response);
-        memcpy(h, HTML[2], strlen(HTML[2]));
+    if (!HTTP_message_fields[0] || !HTTP_message_fields[1] || !HTTP_message_fields[2] ||
+        ((strncmp(HTTP_message_fields[0], "GET", 3) && strncmp(HTTP_message_fields[0], "HEAD", 4)) ||
+         (strncmp(HTTP_message_fields[2], "HTTP/1.1", 8) && strncmp(HTTP_message_fields[2], "HTTP/1.0", 8)))) {
+        sprintf(http_response, HTTP_header, 400, "Bad Request", time, server_name, "text/html", strlen(HTML_PAGES[2]), "close");
+        header_ptr = http_response;
+        header_ptr += strlen(http_response);
+        memcpy(header_ptr, HTML_PAGES[2], strlen(HTML_PAGES[2]));
 
-        if (send_http_msg(sock, http_response, strlen(http_response)) == -1) {
+        if (send_HTTP_message(socket_fd, http_response, strlen(http_response)) == -1) {
             fprintf(stderr, "Error while sending data to client\n");
             free_time_http(time, http_response);
             return -1;
@@ -1268,15 +1189,15 @@ int data_to_send(int sock, char **http_fields) {
     }
 
     //when root is requested
-    if (strncmp(http_fields[1], "/", strlen(http_fields[1])) == 0) {
-        sprintf(http_response, header, 200, "OK", time, server_name, "text/html", strlen(HTML[0]), "keep-alive");
-        if (strncmp(http_fields[0], "HEAD", 4)) {
-            h = http_response;
-            h += strlen(http_response);
-            memcpy(h, HTML[0], strlen(HTML[0]));
+    if (strncmp(HTTP_message_fields[1], "/", strlen(HTTP_message_fields[1])) == 0) {
+        sprintf(http_response, HTTP_header, 200, "OK", time, server_name, "text/html", strlen(HTML_PAGES[0]), "keep-alive");
+        if (strncmp(HTTP_message_fields[0], "HEAD", 4)) {
+            header_ptr = http_response;
+            header_ptr += strlen(http_response);
+            memcpy(header_ptr, HTML_PAGES[0], strlen(HTML_PAGES[0]));
         }
 
-        if (send_http_msg(sock, http_response, strlen(http_response)) == -1) {
+        if (send_HTTP_message(socket_fd, http_response, strlen(http_response)) == -1) {
             fprintf(stderr, "Error while sending data to client\n");
             free_time_http(time, http_response);
             return -1;
@@ -1286,210 +1207,230 @@ int data_to_send(int sock, char **http_fields) {
      * where the real functions begin
      */
     else {
-        struct image *i = img;
-        struct image *first_img = img;
-        char *p_name;
+        struct image_struct *image = image_struct;
+        struct image_struct *first_image = image_struct;
+        char *image_name;
         //if / is not found enters the if
-        if (!(p_name = strrchr(http_fields[1], '/')))
-            i = NULL;
-        ++p_name;
+        if (!(image_name = strrchr(HTTP_message_fields[1], '/')))
+            image = NULL;
+        ++image_name;
         //make p point to /RESIZED.XXXXXX
-        char *p = tmp_resized + strlen("/tmp");
+        char *p = resized_tmp_dir + strlen("/tmp");
 
-        // Finding image in the image structure
-        while (i) {
+        // Finding image_struct in the image_struct structure
+        while (image) {
             /*
-             * if p_name equals i->name enters the if,
-             * otherwise passes to next image
+             * if image_name equals i->name enters the if,
+             * otherwise passes to next image_struct
              */
-            if (!strncmp(p_name, i->name, strlen(i->name))) {
-                ssize_t dim = 0;
-                char *img_to_send = NULL;
+            if (!strncmp(image_name, image->name, strlen(image->name))) {
+                ssize_t image_to_send_size = 0;
+                char *image_to_send = NULL;
 
                 int favicon = 1;
                 /*
                  *
                  */
-                // Looking for resized image or favicon.ico
-                if (!strncmp(p, http_fields[1], strlen(p) - strlen(".XXXXXX")) ||
-                    !(favicon = strncmp(p_name, "favicon.ico", strlen("favicon.ico")))) {
-                    if (strncmp(http_fields[0], "HEAD", 4)) {
+                // Looking for resized image_struct or favicon.ico
+                if (!strncmp(p, HTTP_message_fields[1], strlen(p) - strlen(".XXXXXX")) ||
+                    !(favicon = strncmp(image_name, "favicon.ico", strlen("favicon.ico")))) {
+                    if (strncmp(HTTP_message_fields[0], "HEAD", 4)) {
                         if (favicon)
-                            img_to_send = get_img(p_name, i->size_r, tmp_resized);
+                            image_to_send = get_image(image_name, image->resized_image_size, resized_tmp_dir);
                         else
-                            img_to_send = get_img(p_name, i->size_r, IMG_PATH);
-                        //img_to_send = get_img(p_name, i->size_r, favicon ? tmp_resized : IMG_PATH);
-                        if (!img_to_send) {
-                            fprintf(stderr, "data_to_send: Error in get_img\n");
+                            image_to_send = get_image(image_name, image->resized_image_size, images_path);
+                        //image_to_send = get_image(image_name, i->resized_image_size, favicon ? resized_tmp_dir : images_path);
+                        if (!image_to_send) {
+                            fprintf(stderr, "manage_response: Error in get_image\n");
                             free_time_http(time, http_response);
                             return -1;
                         }
                     }
-                    dim = i->size_r;
+                    image_to_send_size = image->resized_image_size;
                 }
-                // Looking for image in memory cache
+                // Looking for image_struct in memory cache_struct
                 else {
-                    char name_cached_img[DIM / 2];
-                    memset(name_cached_img, (int) '\0', sizeof(char) * DIM / 2);
+                    char name_cached_image[DIM / 2];
+                    memset(name_cached_image, (int) '\0', sizeof(char) * DIM / 2);
                     //c e' un puntatore d'appoggio
-                    struct cache *c;
-                    int def_val = 70;
-                    int processing_accept = quality(http_fields[5]);
+                    struct cache_struct *cache_struct;
+                    int default_value = 70;
+                    int processing_accept = get_quality(HTTP_message_fields[5]);
                     if (processing_accept == -1)
-                        fprintf(stderr, "data_to_send: Unexpected error in strtod\n");
+                        fprintf(stderr, "manage_response: Unexpected error in strtod\n");
 
                     int quality_factor;
                     if (processing_accept < 0)
-                        quality_factor = def_val;
+                        quality_factor = default_value;
                     else
                         quality_factor = processing_accept;
-                    lock(thds.mtx_cache_access);
-                    c = i->img_c;
-                    while (c) {
-                        if (c->q == quality_factor) {
-                            strcpy(name_cached_img, c->img_q);
+                    lock(thread_struct.mtx_cache_access);
+                    cache_struct = image->cached_image;
+                    while (cache_struct) {
+                        if (cache_struct->quality == quality_factor) {
+                            strcpy(name_cached_image, cache_struct->cached_name);
                             /*
-                             * If an image has been accessed, move it on top of the list
-                             * in order to keep the image with less hit in the bottom of the list
-                             * CACHE_N = -1 means we don't have cache max length;
-                             * if name of cache_head == name of img we have to cache
-                             *      the cache list is already updated
+                             * If an image_struct has been accessed, move it on top of the list
+                             * in order to keep the image_struct with less hit in the bottom of the list
+                             * CACHE_COUNTER = -1 means we don't have cache_struct max length;
+                             * if name of cache_head == name of img we have to cache_struct
+                             *      the cache_struct list is already updated
                              */
-                            look_for_cached_img(CACHE_N, name_cached_img);
+                            look_for_cached_img(CACHE_COUNTER, name_cached_image);
                             break;
                         }
-                        c = c->next_img_c;
+                        cache_struct = cache_struct->next_cached_image;
                     }
 
                     /*
-                     * If image has not been cached yet
+                     * If image_struct has not been cached yet
                      */
-                    if (!c) {
-                        // %s = image's name; %d = factor quality (between 1 and 99)
-                        sprintf(name_cached_img, "%s_%d", p_name, quality_factor);
+                    if (!cache_struct) {
+                        // %s = image_struct's name; %d = factor get_quality (between 1 and 99)
+                        sprintf(name_cached_image, "%s_%d", image_name, quality_factor);
                         char path[DIM / 2];
                         memset(path, (int) '\0', DIM / 2);
-                        sprintf(path, "%s/%s", tmp_cache, name_cached_img);
+                        sprintf(path, "%s/%s", cache_tmp_dir, name_cached_image);
 
-                        if (CACHE_N > 0) {
+                        if (CACHE_COUNTER > 0) {
                             /*
                              * Cache of limited size
-                             * If it has not yet reached the maximum cache size
-                             * %s/%s = path/name_image; %d = factor quality
+                             * If it has not yet reached the maximum cache_struct size
+                             * %s/%s = path/name_image; %d = factor get_quality
                              */
 
-                            if (resize_image(IMG_PATH, p_name, quality_factor, tmp_cache, name_cached_img)) {
-                                fprintf(stderr, "data_to_send: error in resize_image\n");
+                            if (resize_image(images_path, image_name, quality_factor, cache_tmp_dir, name_cached_image)) {
+                                fprintf(stderr, "manage_response: error in resize_image\n");
                                 free_time_http(time, http_response);
-                                unlock(thds.mtx_cache_access);
+                                unlock(thread_struct.mtx_cache_access);
                                 return -1;
                             }
 
-                            if (insert_in_cache(path, quality_factor, name_cached_img, i, time, http_response))
-                                fprintf(stderr, "data_to_send: error in insert_in_cache\n");
+                            if (insert_in_cache(path, quality_factor, name_cached_image, image, time, http_response)) {
+                                fprintf(stderr, "manage_response: error in insert_in_cache\n");
+                                free_time_http(time, http_response);
+                                unlock(thread_struct.mtx_cache_access);
+                                return -1;
+                            }
                             /*
-                             * filling struct cache of the relative image
-                             * and inserting the struct cache_hit in the cache list
+                             * filling struct cache_struct of the relative image_struct
+                             * and inserting the struct cached_name in the cache_struct list
                              */
-                            --CACHE_N;
+                            --CACHE_COUNTER;
                         }
 
-                        else if (!CACHE_N){
+                        else if (!CACHE_COUNTER){
                             /*
-                             * Cache full. You have to delete an item.
+                             * Cache server_full. You have to delete an item.
                              * You choose to delete the oldest requested element.
                              */
-                            if (delete_image(img_to_send, time, http_response) != 0)
-                                fprintf(stderr, "data_to_send: error in delete_image\n");
-
-                            if (resize_image(IMG_PATH, p_name, quality_factor, tmp_cache, name_cached_img)) {
-                                fprintf(stderr, "data_to_send: error in resize_image\n");
+                            if (delete_image(image_to_send, time, http_response) != 0) {
+                                fprintf(stderr, "manage_response: error in delete_image\n");
                                 free_time_http(time, http_response);
-                                unlock(thds.mtx_cache_access);
+                                unlock(thread_struct.mtx_cache_access);
                                 return -1;
                             }
-                            //freeing a cache slot
-                            if (free_cache_slot(first_img, time, http_response))
-                                fprintf(stderr, "data_to_send: error in free_cache_slot\n");
 
-                            if (insert_in_cache(path, quality_factor, name_cached_img, i, time, http_response))
-                                fprintf(stderr, "data_to_send: error in insert_in_cache\n");
+                            if (resize_image(images_path, image_name, quality_factor, cache_tmp_dir, name_cached_image)) {
+                                fprintf(stderr, "manage_response: error in resize_image\n");
+                                free_time_http(time, http_response);
+                                unlock(thread_struct.mtx_cache_access);
+                                return -1;
+                            }
+                            //freeing a cache_struct slot
+                            if (free_cache_slot(first_image, time, http_response)) {
+                                fprintf(stderr, "manage_response: error in free_cache_slot\n");
+                                free_time_http(time, http_response);
+                                unlock(thread_struct.mtx_cache_access);
+                                return -1;
+                            }
+
+                            if (insert_in_cache(path, quality_factor, name_cached_image, image, time, http_response)) {
+                                fprintf(stderr, "manage_response: error in insert_in_cache\n");
+                                free_time_http(time, http_response);
+                                unlock(thread_struct.mtx_cache_access);
+                                return -1;
+                            }
 
                         } else {
                             /*
-                             * Unlimited cache size
+                             * Unlimited cache_struct size
                              */
 
-                            if (resize_image(IMG_PATH, p_name, quality_factor, tmp_cache, name_cached_img)) {
-                                fprintf(stderr, "data_to_send: error in resize_image\n");
+                            if (resize_image(images_path, image_name, quality_factor, cache_tmp_dir, name_cached_image)) {
+                                fprintf(stderr, "manage_response: error in resize_image\n");
                                 free_time_http(time, http_response);
-                                unlock(thds.mtx_cache_access);
+                                unlock(thread_struct.mtx_cache_access);
                                 return -1;
                             }
-                            if (insert_in_cache(path, quality_factor, name_cached_img, i, time, http_response))
-                                fprintf(stderr, "data_to_send: error in insert_in_cache\n");
+                            if (insert_in_cache(path, quality_factor, name_cached_image, image, time, http_response)) {
+                                fprintf(stderr, "manage_response: error in insert_in_cache\n");
+                                free_time_http(time, http_response);
+                                unlock(thread_struct.mtx_cache_access);
+                                return -1;
+                            }
                         }
                     }
 
-                    unlock(thds.mtx_cache_access);
+                    unlock(thread_struct.mtx_cache_access);
 
-                    if (strncmp(http_fields[0], "HEAD", 4)) {
+                    if (strncmp(HTTP_message_fields[0], "HEAD", 4)) {
 
-                        img_to_send = search_file(i, name_cached_img, img_to_send, c, time, http_response);
-                        if (!img_to_send) {
-                            fprintf(stderr, "data_to_send: Error in get_img\n");
+                        image_to_send = search_file(image, name_cached_image, image_to_send, cache_struct, time, http_response);
+                        if (!image_to_send) {
+                            fprintf(stderr, "manage_response: Error in get_image\n");
                             free_time_http(time, http_response);
                             return -1;
                         }
                     }
-                    dim = i->img_c->size_q;
+                    image_to_send_size = image->cached_image->cached_image_size;
 
-                } //END if looking in cache
+                } //END if looking in cache_struct
 
-                sprintf(http_response, header, 200, "OK", time, server_name, "image/gif", dim, "keep-alive");
-                ssize_t dim_tot = (size_t) strlen(http_response);
-                if (strncmp(http_fields[0], "HEAD", 4)) {
-                    if (dim_tot + dim > DIM * DIM * 2) {
-                        http_response = realloc(http_response, (dim_tot + dim) * sizeof(char));
+                sprintf(http_response, HTTP_header, 200, "OK", time, server_name, "image_struct/gif", image_to_send_size, "keep-alive");
+                ssize_t http_response_header_size = (size_t) strlen(http_response);
+                if (strncmp(HTTP_message_fields[0], "HEAD", 4)) {
+                    if (http_response_header_size + image_to_send_size > DIM * DIM * 2) {
+                        http_response = realloc(http_response, (http_response_header_size + image_to_send_size) * sizeof(char));
                         if (!http_response) {
-                            fprintf(stderr, "data_to_send: Error in realloc\n");
+                            fprintf(stderr, "manage_response: Error in realloc\n");
                             free_time_http(time, http_response);
-                            free(img_to_send);
+                            free(image_to_send);
                             return -1;
                         }
-                        memset(http_response + dim_tot, (int) '\0', (size_t) dim);
+                        memset(http_response + http_response_header_size, (int) '\0', (size_t) image_to_send_size);
                     }
 
-                    h = http_response;
-                    //points at the end of the header
-                    h += dim_tot;
-                    //writes the image in the body of http response
-                    memcpy(h, img_to_send, (size_t) dim);
-                    dim_tot += dim;
+                    header_ptr = http_response;
+                    //points at the end of the HTTP_header
+                    header_ptr += http_response_header_size;
+                    //writes the image_struct in the body of http response
+                    memcpy(header_ptr, image_to_send, (size_t) image_to_send_size);
+                    http_response_header_size += image_to_send_size;
                 }
 
-                if (send_http_msg(sock, http_response, dim_tot) == -1) {
-                    fprintf(stderr, "data_to_send: Error while sending data to client\n");
+                if (send_HTTP_message(socket_fd, http_response, http_response_header_size) == -1) {
+                    fprintf(stderr, "manage_response: Error while sending data to client\n");
                     free_time_http(time, http_response);
                     return -1;
                 }
-                free(img_to_send);
+                free(image_to_send);
                 break;
             }
-            i = i->next_img;
+            image = image->next_image;
         }
-        //if image has not been found
-        if (!i) {
-            sprintf(http_response, header, 404, "Not Found", time, server_name, "text/html", strlen(HTML[1]), "close");
-            if (strncmp(http_fields[0], "HEAD", 4)) {
-                h = http_response;
+        //if image_struct has not been found
+        if (!image) {
+            sprintf(http_response, HTTP_header, 404, "Not Found", time, server_name, "text/html", strlen(HTML_PAGES[1]), "close");
+            if (strncmp(HTTP_message_fields[0], "HEAD", 4)) {
+                header_ptr = http_response;
                 //h points at the start of the body
-                h += strlen(http_response);
-                memcpy(h, HTML[1], strlen(HTML[1]));
+                header_ptr += strlen(http_response);
+                memcpy(header_ptr, HTML_PAGES[1], strlen(HTML_PAGES[1]));
             }
 
-            if (send_http_msg(sock, http_response, strlen(http_response)) == -1) {
-                fprintf(stderr, "data_to_send: Error while sending data to client\n");
+            if (send_HTTP_message(socket_fd, http_response, strlen(http_response)) == -1) {
+                fprintf(stderr, "manage_response: Error while sending data to client\n");
                 free_time_http(time, http_response);
                 return -1;
             }
@@ -1503,50 +1444,52 @@ int data_to_send(int sock, char **http_fields) {
  * Every thread execute this function to deal a connection
  * Analyzes HTTP message
  */
-void respond(int sock, struct sockaddr_in client) {
+void respond(int socket_fd, struct sockaddr_in client_address) {
 
     //buffer
-    char http_req[DIM * DIM];
-    char *line_req[7];
-    ssize_t tmp;
-    int i;
-    struct timeval tv;
-    tv.tv_sec = 10; //TODO look timeval struct
-    tv.tv_usec = 0;
+    char HTTP_request_buffer[DIM * DIM];
+    char *line_request[7];
+    ssize_t received;
+    struct timeval timeval;
+    timeval.tv_sec = 10;
+    timeval.tv_usec = 0;
 
-    if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(struct timeval)) < 0)
+    if (setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, &timeval, sizeof(struct timeval)) < 0)
         fprintf(stderr, "respond: Error in setsockopt\n");
+
+    int i;
+
     do {
-        memset(http_req, (int) '\0', 5 * DIM);
+        memset(HTTP_request_buffer, (int) '\0', 5 * DIM);
         for (i = 0; i < 7; ++i)
-            line_req[i] = NULL;
+            line_request[i] = NULL;
 
         errno = 0;
-        tmp = recv(sock, http_req, 5 * DIM, 0);
-        if (tmp == -1) {
+        received = recv(socket_fd, HTTP_request_buffer, 5 * DIM, 0);
+        if (received == -1) {
             switch (errno) {
                 case EFAULT:
                     fprintf(stderr, "The receive  buffer  pointer(s)  point  outside  the  process's address space");
                     break;
 
-                case EBADF:
-                    fprintf(stderr, "The argument of recv() is an invalid descriptor: %d\n", sock);
+                case EINTR:
+                    fprintf(stderr, "Timeout receiving from socket\n");
                     break;
 
-                case ECONNREFUSED:
-                    fprintf(stderr, "Remote host refused to allow the network connection\n");
+                case EBADF:
+                    fprintf(stderr, "The argument of recv() is an invalid descriptor: %d\n", socket_fd);
                     break;
 
                 case ENOTSOCK:
                     fprintf(stderr, "The argument of recv() does not refer to a socket\n");
                     break;
 
-                case EINVAL:
-                    fprintf(stderr, "Invalid argument passed\n");
+                case ECONNREFUSED:
+                    fprintf(stderr, "Remote host refused to allow the network connection\n");
                     break;
 
-                case EINTR:
-                    fprintf(stderr, "Timeout receiving from socket\n");
+                case EINVAL:
+                    fprintf(stderr, "Invalid argument passed\n");
                     break;
 
                 case EWOULDBLOCK:
@@ -1554,25 +1497,25 @@ void respond(int sock, struct sockaddr_in client) {
                     break;
 
                 default:
-                    fprintf(stderr, "Error in recv: error while receiving data from client\n");
+                    fprintf(stderr, "Error in recv: error while receiving data from client_address\n");
                     break;
             }
             break;
-        } else if (tmp == 0) {
+        } else if (received == 0) {
             fprintf(stderr, "Client disconnected\n");
             break;
         } else {
-            split_str(http_req, line_req);
+            split_HTTP_message(HTTP_request_buffer, line_request);
             char log_string[DIM / 2];
             memset(log_string, (int) '\0', DIM / 2);
             sprintf(log_string, "\tClient:\t%s\tRequest: '%s %s %s'\n",
-                    inet_ntoa(client.sin_addr), line_req[0], line_req[1], line_req[2]);
+                    inet_ntoa(client_address.sin_addr), line_request[0], line_request[1], line_request[2]);
             write_log(log_string);
 
-            if (data_to_send(sock, line_req))
+            if (manage_response(socket_fd, line_request))
                 break;
         }
-    } while (line_req[3] && !strncmp(line_req[3], "keep-alive", 10));
+    } while (line_request[3] && !strncmp(line_request[3], "keep-alive", 10));
 }
 
 /*
@@ -1583,83 +1526,83 @@ void *manage_connection(void *arg) {
 
     //join not needed
     if (pthread_detach(pthread_self()) != 0)
-        error_found("Error in pthread_detach\n");
+        error_found("manage_connection: Error in pthread_detach\n");
 
-    struct th_sync *k = (struct th_sync *) arg;
+    struct threads_sync_struct *threads_sync_struct = (struct threads_sync_struct *) arg;
     struct sockaddr_in client;
-    int slot_c, sock;
+    int client_socket_element, socket_fd;
 
-    lock(k -> mtx_sync_conditions);
-    slot_c = k -> slot_c;
-    signal_t(k -> th_start);
-    unlock(k -> mtx_sync_conditions);
-    lock(k -> mtx_thread_conn_number);
+    lock(threads_sync_struct -> mtx_sync_conditions);
+    client_socket_element = threads_sync_struct -> client_socket_element;
+    signal_t(threads_sync_struct -> th_start);
+    unlock(threads_sync_struct -> mtx_sync_conditions);
+    lock(threads_sync_struct -> mtx_thread_conn_number);
 
-    if (k -> clients[slot_c] == -3) {
+    if (threads_sync_struct -> client_socket_list[client_socket_element] == -3) {
         // Thread ready for incoming connections
-        k -> clients[slot_c] = -1;
+        threads_sync_struct -> client_socket_list[client_socket_element] = -1;
     } else {
-        fprintf(stderr, "Unknown error: slot[%d]: %d\n", slot_c, k -> clients[slot_c]);
+        fprintf(stderr, "manage_connection: Unknown error: slot[%d]: %d\n", client_socket_element, threads_sync_struct -> client_socket_list[client_socket_element]);
         pthread_exit(NULL);
     }
     // Deal connections
     while (1) {
         memset(&client, (int) '\0', sizeof(struct sockaddr_in));
-        wait_t(k->threads_cond_list + slot_c, k->mtx_thread_conn_number);
+        wait_t(threads_sync_struct->threads_cond_list + client_socket_element, threads_sync_struct->mtx_thread_conn_number);
         /*
-         * sock values:
+         * socket_fd values:
          *      -1 -> thread ready for incoming connections
          *      -2 -> thread killed by kill_th function or thread not yet created
          *      -3 -> newly created thread
          *      >0 -> connection oriented socket file descriptor
          */
-        sock = k->clients[slot_c];
-        //if clients[slot_c] socket's thread has been killed than decrease th_act counter
-        if (sock < 0) {
-            if (sock != -2) {
-                fprintf(stderr, "Unknown error trying to access sock array: %d\n", sock);
+        socket_fd = threads_sync_struct->client_socket_list[client_socket_element];
+        //if client_socket_list[client_socket_element] socket's thread has been killed than decrease active_threads counter
+        if (socket_fd < 0) {
+            if (socket_fd != -2) {
+                fprintf(stderr, "manage_connection: Unknown error trying to access socket_fd array: %d\n", socket_fd);
                 continue;
             }
-            --k->th_act;
-            unlock(k->mtx_thread_conn_number);
+            --threads_sync_struct->active_threads;
+            unlock(threads_sync_struct->mtx_thread_conn_number);
             break;
         }
         /*
-         * if sock >= 0:
+         * if socket_fd >= 0:
          * copies the sockaddr_in struct in client
          * and increments the number of connection
          * new connection has been established
          */
-        memcpy(&client, &k->client_addr, sizeof(struct sockaddr_in));
-        ++k -> connections;
+        memcpy(&client, &threads_sync_struct->client_address, sizeof(struct sockaddr_in));
+        ++threads_sync_struct -> connections;
         /*
          * Analyzes number of connections and active threads
          * and creates new threads if necessary
          */
-        spawn_th(k);
-        unlock(k -> mtx_thread_conn_number);
-        respond(sock, client);
+        spawn_thread(threads_sync_struct);
+        unlock(threads_sync_struct -> mtx_thread_conn_number);
+        respond(socket_fd, client);
 
         errno = 0;
-        if (close(sock) != 0) {
+        if (close(socket_fd) != 0) {
             switch (errno) {
                 case EIO:
-                    fprintf(stderr, "I/O error occurred\n");
+                    fprintf(stderr, "manage_connection: I/O error occurred\n");
                     break;
 
                 case EBADF:
-                    fprintf(stderr, "Bad file number: %d. Probably client has disconnected\n", sock);
+                    fprintf(stderr, "manage_connection: Bad file number: %d. Probably client has disconnected\n", socket_fd);
                     break;
 
                 default:
-                    fprintf(stderr, "Error in close\n");
+                    fprintf(stderr, "manage_connection: Error in close\n");
             }
         }
-        lock(k -> mtx_thread_conn_number);
-        --k -> connections;
-        kill_th(k);
-        k -> clients[slot_c] = -1;
-        signal_t(k -> full);
+        lock(threads_sync_struct -> mtx_thread_conn_number);
+        --threads_sync_struct -> connections;
+        kill_th(threads_sync_struct);
+        threads_sync_struct -> client_socket_list[client_socket_element] = -1;
+        signal_t(threads_sync_struct -> server_full);
     }
     pthread_exit(EXIT_SUCCESS);
 }
@@ -1669,24 +1612,24 @@ void *manage_connection(void *arg) {
  * Used to create other threads
  * in the case in which the server load is rising
  */
-void spawn_th(struct th_sync *k) {
+void spawn_thread(struct threads_sync_struct *threads_sync_struct) {
 
     /*
      * Threads are created dynamically in need with the number of connections.
      * If the number of connections decreases, the number of active threads
      * is reduced in a phased manner so as to cope with a possible peak of connections.
      */
-    if (k -> connections >= k -> th_act_thr * 2 / 3 &&
-        k -> th_act <= k -> th_act_thr) {
+    if (threads_sync_struct -> connections >= threads_sync_struct -> min_active_threads_treshold * 2 / 3 &&
+        threads_sync_struct -> active_threads <= threads_sync_struct -> min_active_threads_treshold) {
         int n_th;
-        if (k -> th_act_thr + MINTH / 2 <= MAXCONN) {
-            n_th = MINTH / 2;
+        if (threads_sync_struct -> min_active_threads_treshold + MIN_THREAD_TRESHOLD / 2 <= MAX_CONNECTION) {
+            n_th = MIN_THREAD_TRESHOLD / 2;
         } else {
-            n_th = MAXCONN - k -> th_act_thr;
+            n_th = MAX_CONNECTION - threads_sync_struct -> min_active_threads_treshold;
         }
         if (n_th) {
-            k -> th_act_thr += n_th;
-            init_th(n_th, manage_connection, k);
+            threads_sync_struct -> min_active_threads_treshold += n_th;
+            initialize_thread(n_th, manage_connection, threads_sync_struct);
         }
     }
 }
@@ -1699,110 +1642,110 @@ void spawn_th(struct th_sync *k) {
  * otherwise it waits on a pthread_cond_t condition,
  * until the system load is not lowered.
  * */
-void *manage_threads(void *arg) {
+void *main_thread_work(void *arg) {
 
-    struct th_sync *k = (struct th_sync *) arg;
-    int connsocketFD, i = 0, j;
+    struct threads_sync_struct *threads_sync_struct = (struct threads_sync_struct *) arg;
+    int conn_socket_fd, i = 0, j;
     struct sockaddr_in client;
-    socklen_t socksize = sizeof(struct sockaddr_in);
+    socklen_t socket_size = sizeof(struct sockaddr_in);
 
-    create_th(catch_command, arg);
-    init_th(MINTH, manage_connection, arg);
+    create_thread(catch_user_command, arg);
+    initialize_thread(MIN_THREAD_TRESHOLD, manage_connection, arg);
 
     fprintf(stdout, "\n\n\n-Waiting for incoming connection...\n");
     // Accept connections
     while (1) {
-        lock(k -> mtx_thread_conn_number);
-        if (k -> connections + 1 > MAXCONN) {
-            wait_t(k -> full, k -> mtx_thread_conn_number); }
-        unlock(k -> mtx_thread_conn_number);
-        memset(&client, (int) '\0', socksize);
+        lock(threads_sync_struct -> mtx_thread_conn_number);
+        if (threads_sync_struct -> connections + 1 > MAX_CONNECTION) {
+            wait_t(threads_sync_struct -> server_full, threads_sync_struct -> mtx_thread_conn_number); }
+        unlock(threads_sync_struct -> mtx_thread_conn_number);
+        memset(&client, (int) '\0', socket_size);
 
         errno = 0;
-        connsocketFD = accept(LISTENsd, (struct sockaddr *) &client, &socksize);
-        memset(&k->client_addr, (int) '\0', socksize);
-        memcpy(&k->client_addr, &client, socksize);
-        lock(k -> mtx_thread_conn_number);
+        conn_socket_fd = accept(LISTEN_SOCKET_DESCRIPTOR, (struct sockaddr *) &client, &socket_size);
+        memset(&threads_sync_struct->client_address, (int) '\0', socket_size);
+        memcpy(&threads_sync_struct->client_address, &client, socket_size);
+        lock(threads_sync_struct -> mtx_thread_conn_number);
 
-        if (connsocketFD == -1) {
+        if (conn_socket_fd == -1) {
             switch (errno) {
                 case ECONNABORTED:
-                    fprintf(stderr, "The connection has been aborted\n");
-                    unlock(k -> mtx_thread_conn_number);
+                    fprintf(stderr, "main_thread_work: The connection has been aborted\n");
+                    unlock(threads_sync_struct -> mtx_thread_conn_number);
                     continue;
 
                 case ENOBUFS:
-                    error_found("Not enough free memory\n");
+                    error_found("main_thread_work: Not enough free memory\n");
 
                 case ENOMEM:
-                    error_found("Not enough free memory\n");
+                    error_found("main_thread_work: Not enough free memory\n");
 
                 case EMFILE:
-                    fprintf(stderr, "Too many open files!\n");
-                    wait_t(k -> full, k -> mtx_thread_conn_number);
-                    unlock(k -> mtx_thread_conn_number);
-                    continue;
-
-                case EPROTO:
-                    fprintf(stderr, "Protocol error\n");
-                    unlock(k -> mtx_thread_conn_number);
-                    continue;
-
-                case EPERM:
-                    fprintf(stderr, "Firewall rules forbid connection\n");
-                    unlock(k -> mtx_thread_conn_number);
+                    fprintf(stderr, "main_thread_work: Too many open files!\n");
+                    wait_t(threads_sync_struct -> server_full, threads_sync_struct -> mtx_thread_conn_number);
+                    unlock(threads_sync_struct -> mtx_thread_conn_number);
                     continue;
 
                 case ETIMEDOUT:
-                    fprintf(stderr, "Timeout occured\n");
-                    unlock(k -> mtx_thread_conn_number);
+                    fprintf(stderr, "main_thread_work: Timeout occured\n");
+                    unlock(threads_sync_struct -> mtx_thread_conn_number);
+                    continue;
+
+                case EPROTO:
+                    fprintf(stderr, "main_thread_work: Protocol error\n");
+                    unlock(threads_sync_struct -> mtx_thread_conn_number);
+                    continue;
+
+                case EPERM:
+                    fprintf(stderr, "main_thread_work: Firewall rules forbid connection\n");
+                    unlock(threads_sync_struct -> mtx_thread_conn_number);
                     continue;
 
                 case EBADF:
-                    fprintf(stderr, "Bad file number\n");
-                    unlock(k -> mtx_thread_conn_number);
+                    fprintf(stderr, "main_thread_work: Bad file number\n");
+                    unlock(threads_sync_struct -> mtx_thread_conn_number);
                     continue;
 
                 default:
-                    error_found("Error in accept\n");
+                    error_found("main_thread_work: Error in accept\n");
             }
         }
-        //printf("\nNUM CONN: %d\t\tTH_ACT: %d\t\tTH_THR: %d\n\n", k -> connections, k -> th_act, k -> th_act_thr);
+
         j = 1;
-        while (k -> clients[i] != -1) {
-            if (j > MAXCONN) {
+        while (threads_sync_struct -> client_socket_list[i] != -1) {
+            if (j > MAX_CONNECTION) {
                 j = -1;
                 break;
             }
-            i = (i + 1) % MAXCONN;
+            i = (i + 1) % MAX_CONNECTION;
             ++j;
         }
         if (j == -1) {
-            unlock(k -> mtx_thread_conn_number);
+            unlock(threads_sync_struct -> mtx_thread_conn_number);
             continue;
         }
-        k -> clients[i] = connsocketFD;
-        signal_t(k -> threads_cond_list + i);
-        i = (i + 1) % MAXCONN;
-        unlock(k -> mtx_thread_conn_number);
+        threads_sync_struct -> client_socket_list[i] = conn_socket_fd;
+        signal_t(threads_sync_struct -> threads_cond_list + i);
+        i = (i + 1) % MAX_CONNECTION;
+        unlock(threads_sync_struct -> mtx_thread_conn_number);
     }
 }
 
 int main(int argc, char **argv) {
 
     if (argc > 11) {
-        fprintf(stderr, "Too many arguments\n\n");
-        usage(*argv);
+        fprintf(stderr, "main: Too many arguments\n\n");
+        user_usage(*argv);
     }
 
     pthread_mutex_t mtx_s_c, mtx_c, mtx_t;
-    pthread_cond_t event, th_start, full;
+    pthread_cond_t th_start, full;
 
     init(argc, argv, &mtx_s_c, &mtx_c, &mtx_t,
-         &th_start, &full, &thds);
+         &th_start, &full, &thread_struct);
     // To ignore SIGPIPE
     catch_signal();
-    manage_threads(&thds);
+    main_thread_work(&thread_struct);
     return EXIT_SUCCESS;
 }
 

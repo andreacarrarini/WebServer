@@ -9,10 +9,10 @@ http_fields is used to split the http request string in 7 fields:
  *  Cache-Control
  */
 
-cached image format is: %s_%d
-%s = image's name; %d = factor quality (between 1 and 99)
+cached image_struct format is: %s_%d
+%s = image_struct's name; %d = factor get_quality (between 1 and 99)
 
-connsockFD values: (or clients[i])
+connsockFD values: (or client_socket_list[i])
         -1 -> thread ready for incoming connections
         -2 -> thread killed by kill_th function or thread not yet created
         -3 -> newly created thread

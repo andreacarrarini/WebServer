@@ -11,7 +11,7 @@ void error_found(char *s) {
     fprintf(stderr, "%s", s);
     if (LOG)
         write_on_stream(s, LOG);
-    free_mem();
+    free_memory();
     exit(EXIT_FAILURE);
 }
 
