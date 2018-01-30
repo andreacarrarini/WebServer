@@ -15,9 +15,9 @@
  * lista ordinata dei filename di tutte le immagini cachate
  * (vera e propria cache_struct)
  */
-struct cached_name_list_element {
+struct cached_name_element {
     char cache_name[DIM / 2];
-    struct cached_name_list_element *next_cached_image_name;
+    struct cached_name_element *next_cached_image_name;
 };
 
 /*
@@ -53,8 +53,8 @@ struct image_struct {
 // Struct which contains all variables for synchronise threads
 struct threads_sync_struct {
     struct sockaddr_in client_address;
-    struct cached_name_list_element *cached_name_list_tail,
-            *cached_name_list_head;
+    struct cached_name_element *cached_name_tail,
+            *cached_name_head;
     //array of connsocket descriptor
     int *client_socket_list;
     volatile int client_socket_element,

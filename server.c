@@ -30,170 +30,6 @@ char *user_command = "-Enter 'q' to stop the server, "
         "'s' to know server state or "
         "'f' to force Log file write";
 
-/*int main(int argc, char *argv[]) {
-
-    typedef enum { false, true } bool;      //definisco il tipo bool
-
-    bool thread_index[2];
-
-    thread_index[0] = true;
-    thread_index[1] = false;
-
-    int a,b;
-    if (thread_index[0] == true)
-        printf("thread index 0 e' true\n");
-    if (thread_index[1] == false)
-        printf("thread index 1 e' false\n");
-    return 0;
-
-
-
-}*/
-
-/*void spawn_child(void) {
-    int count = 0;
-    pid_t pid;
-    while (count < 5) {
-        if ((pid = fork()) != 0)
-            if (pid == -1)
-                perror("error in fork\n");
-            if (pid > 0)    //processo padre
-                continue;
-        else child_job();   //processi figli
-        count++;
-    }
-    return;
-}
-
-struct thread_data {
-    pthread_t tid;
-    int listensd, connsd;
-    struct sockaddr_in *servaddr, *cliaddr;
-    int len;
-    int free;       //1 se occupato a servire una richiesta, 0 altrimenti
-};
-
-
-void *worker1_job(void *arg) {
-
-}
-
-void *worker2_job(void *arg) {
-
-}
-
-void child_job(void* arg) {
-
-    #define SERV_PORT 5193
-    #define BACKLOG 10
-    #define MAXLINE 1024
-
-    int listensd, connsd;
-    struct sockaddr_in servaddr;
-    struct sockaddr_in cliaddr;
-
-    struct thread_data td[2];   //una struct per thread
-
-    td[0].free = 0;
-    td[1].free = 0;
-
-    pthread_t worker1;
-    pthread_t worker2;
-
-    struct thread_data *td = (struct thread_data *) arg;
-
-    *//*
-    int listensd = td->listensd;
-    int connsd = td->connsd;
-    int len = td->len;
-
-    struct sockaddr_in servaddr = *td->servaddr;
-    struct sockaddr_in cliaddr = *td->cliaddr;
-    *//*
-
-    if ((listensd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {     //creo la socket
-        perror("errore in socket\n");
-        exit(EXIT_FAILURE);
-    }
-
-    memset((char *) &servaddr, 0, sizeof(servaddr));     //azzero l'area di memoria di servaddr
-
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);       */
-/* il server accetta richieste su ogni interfaccia di rete *//*
-    servaddr.sin_port = htons(SERV_PORT);
-
-    if ((bind(listensd, (struct sockaddr *) &servaddr, sizeof(servaddr))) < 0) {     *//*"assigning a name to a socket",
- * prima di bind la socket esiste ma non ha assegnato alcun indirizzo *//*
-        perror("errore in bind\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (listen(listensd, BACKLOG) < 0) {       */
-/*marco la socket identificata dal fd come passiva*//*
-        perror("errore in listen\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (fcntl(listensd, F_SETFL, O_NONBLOCK) !=
-        0) {        */
-/*rendo la socket non bloccante quando in seguito uso accept*/
-/*
-        perror("error making non-blocking socket\n");
-        exit(EXIT_FAILURE);
-    }
-
-    for (;;) {
-
-        int len = sizeof(cliaddr);
-        socklen_t scklen = (socklen_t) len;
-
-        if (td[0].free == 0) {
-
-            if (connsd == accept(listensd, (struct sockaddr *) &cliaddr, &scklen) < 0) {     *//*estrae la prima richiesta pendente
- * dalla coda di richieste della socket di ascolto, crea una socket di connessione, e ritorna un FD che la identifica,
- * la socket di ascolto non viene toccata *//*
-                perror("errore in accept\n");
-            }
-
-            td[0].listensd = listensd;
-            td[0].connsd = connsd;
-            td[0].servaddr = &servaddr;
-            td[0].cliaddr = &cliaddr;
-            td[0].free = 1;
-
-            if (pthread_create(&worker1, NULL, worker1_job, &td[0]) != 0) {
-                perror("error in pthread_create\n");
-                exit(EXIT_FAILURE);
-            }
-        } else if (td[1].free == 0) {
-
-            if (connsd == accept(listensd, (struct sockaddr *) &cliaddr, &scklen) < 0) {     *//*estrae la prima richiesta pendente
- * dalla coda di richieste della socket di ascolto, crea una socket di connessione, e ritorna un FD che la identifica,
- * la socket di ascolto non viene toccata *//*
-                perror("errore in accept\n");
-            }
-
-            td[1].listensd = listensd;
-            td[1].connsd = connsd;
-            td[1].servaddr = &servaddr;
-            td[1].cliaddr = &cliaddr;
-            td[1].free = 1;
-
-            if (pthread_create(&worker2, NULL, worker2_job, &td[1]) != 0) {
-                perror("error in pthread_create\n");
-                exit(EXIT_FAILURE);
-            }
-
-        else continue;  //errore: se sono occupati entrambi che faccio?????
-        }
-    }
-
-
-    return;
-}*/
-
-
 
 void write_on_stream(char *string, FILE *file) {
 
@@ -213,14 +49,6 @@ void write_on_stream(char *string, FILE *file) {
     }
 }
 
-
-/*// To close the process on error
-void exit_on_error(char *error) {
-
-    fprintf(stderr, "%s\n", error);
-    exit(EXIT_FAILURE);
-}*/
-
 char *get_time(void) {
 
     time_t time_orig = time(NULL);
@@ -237,30 +65,6 @@ char *get_time(void) {
     if (formatted_time[strlen(formatted_time) - 1] == '\n')
         formatted_time[strlen(formatted_time) - 1] = '\0';
     return formatted_time;
-}
-
-void write_log(char *log_message) {
-
-    char *time = get_time();
-    write_on_stream(time, LOG);
-    write_on_stream(log_message, LOG);
-    free(time);
-}
-
-FILE *open_LOG_file(const char *path_to_LOG_dir) {
-
-    errno = 0;
-    char LOG_path[strlen(path_to_LOG_dir) + 4];
-    sprintf(LOG_path, "%sLOG", path_to_LOG_dir);
-    if (LOG_path[strlen(LOG_path)] != '\0')
-        LOG_path[strlen(LOG_path)] = '\0';
-    FILE *f = fopen(LOG_path, "a");
-    if (!f) {
-        if (errno == EACCES)
-            error_found("open_LOG_file: Missing permission\n");
-        error_found("open_LOG_file: Error in fopen\n");
-    }
-    return f;
 }
 
 void user_usage(const char *c) {
@@ -379,15 +183,6 @@ void get_command_line_options(int argc, char **argv, char **path) {
                 c_mode = 1;
                 break;
 
-/*            case 'r':
-                errno = 0;
-                *perc = (int) strtol(optarg, &k, 10);
-                if (errno != 0 || *k != '\0')
-                    error_found("Argument -r: Error in strtol: Invalid number\n");
-                if (*perc < 1 || *perc > 100)
-                    error_found("Argument -r: The number must be > 0 and <= 100\n");
-                break;*/
-
             case 'n':
                 errno = 0;
                 int cache_size = (int) strtol(optarg, &k, 10);
@@ -456,36 +251,7 @@ void start_WebServer(void) {
     fprintf(stdout, "-Servers socket created with number: %d\n", PORT);
 }
 
-/*void *map_file(char *path, off_t *size) {
-
-    fprintf(stderr, "map_file\n");
-
-    struct stat statbuf;
-    int fd;
-    char *map;
-
-    memset(&statbuf, 0, sizeof(struct stat));
-    //stat func. requires a stat struct ptr
-    if (stat(path, &statbuf) != 0) {
-        if (errno == ENAMETOOLONG)
-            error_found("Path too long\n");
-        error_found("Invalid path\n");
-    } else if (!S_ISREG(statbuf.st_mode))
-        error_found("Non-regular files can not be mapped!\n");
-
-    fd = open(path, O_RDONLY);
-    if (fd == -1)
-        error_found("Error opening html file\n");
-
-    *size = statbuf.st_size;
-    map = mmap(NULL, *size, PROT_READ, MAP_PRIVATE, fd, 0);
-    if (map == (void *) -1)
-        error_found("Error in mmap\n");
-
-    return map;
-}*/
-
-void check_and_build(char *s, char **html, size_t *dim) {   //TODO change
+void check_and_build(char *image_name, char **html, size_t *dim) {
 
     char *k = "<b>%s</b><br><br><a href=\"%s\"><img src=\"\\%s\" height=\"130\" weight=\"100\"></a><br><br><br><br>";;
     //char *k = "<b>%s</b><br><br><a href=\"%s\"></a><br><br><br><br>";;
@@ -499,42 +265,7 @@ void check_and_build(char *s, char **html, size_t *dim) {   //TODO change
     }
 
     char *q = *html + len;
-    sprintf(q, k, s, s, s);
-}
-
-// Used to get information from a file on the file system
-//  check values: 1 for check directory
-//                0 for check regular files
-void get_file_info(struct stat *stat_buf, char *path, int check) {
-
-    memset(stat_buf, (int) '\0', sizeof(struct stat));
-    /*char mode[] = "0777";
-    int permissions;
-    permissions = strtol(mode, 0, 8);
-    errno = 0;
-    if (chmod(path, permissions)) {
-        fprintf(stderr, "get_info(chmod): errno is: %s\n", strerror(errno));
-        error_found("get_file_info: failed giving permission to file\n");
-    }*/
-    errno = 0;
-    if (stat(path, stat_buf) != 0) {
-        if (errno == ENAMETOOLONG)
-            error_found("get_file_info: Path too long\n");
-        mode_t permission_bits = stat_buf->st_mode;
-        if((permission_bits & S_IRUSR) == 0){
-            fprintf(stderr, "get_file_info: User doesn't have read privilages\n");
-        }
-        error_found("get_file_info: Invalid path\n");
-    }
-    if (check) {
-        if (!S_ISDIR((*stat_buf).st_mode)) {
-            error_found("get_file_info: Argument -l: The path is not a directory!\n");
-        }
-    } else {
-        if (!S_ISREG((*stat_buf).st_mode)) {
-            error_found("get_file_info: Non-regular files can not be analysed!\n");
-        }
-    }
+    sprintf(q, k, image_name, image_name, image_name);
 }
 
 // Used to fill img dynamic structure
@@ -578,7 +309,7 @@ void check_WebServer_images(int perc) {
 
     DIR *dir;
     struct dirent *dirent;
-    char *k;
+    char *char_ptr;
 
     //opens the target directory, returns a ptr to the directory stream
     errno = 0;
@@ -614,20 +345,20 @@ void check_WebServer_images(int perc) {
             /*If a file is appended with a tilde~,
              * it only means that it is a backup created by a text editor
              * or similar program*/
-            if ((k = strrchr(dirent -> d_name, '~')) != NULL) {
+            if ((char_ptr = strrchr(dirent -> d_name, '~')) != NULL) {
                 //tilde is found
                 fprintf(stderr, "check_WebServer_images: File '%s' was skipped\n", dirent -> d_name);
                 continue;
             }
 
-            if ((k = strrchr(dirent -> d_name, '.')) != NULL) {
-                if (strcmp(k, ".db") == 0) {
+            if ((char_ptr = strrchr(dirent -> d_name, '.')) != NULL) {
+                if (strcmp(char_ptr, ".db") == 0) {
                     fprintf(stderr, "check_WebServer_images: File '%s' was skipped\n", dirent -> d_name);
                     continue;
                 }
-                if (strcmp(k, ".gif") != 0 && strcmp(k, ".GIF") != 0 &&
-                    strcmp(k, ".jpg") != 0 && strcmp(k, ".JPG") != 0 &&
-                    strcmp(k, ".png") != 0 && strcmp(k, ".PNG") != 0)
+                if (strcmp(char_ptr, ".gif") != 0 && strcmp(char_ptr, ".GIF") != 0 &&
+                    strcmp(char_ptr, ".jpg") != 0 && strcmp(char_ptr, ".JPG") != 0 &&
+                    strcmp(char_ptr, ".png") != 0 && strcmp(char_ptr, ".PNG") != 0)
                     fprintf(stderr, "check_WebServer_images: Warning: file '%s' may have an unsupported format\n", dirent -> d_name);
             } else {
                 fprintf(stderr, "check_WebServer_images: Warning: file '%s' format in not supported\n", dirent -> d_name);
@@ -635,15 +366,6 @@ void check_WebServer_images(int perc) {
 
             if (resize_image(images_path, dirent -> d_name, perc, resized_tmp_dir, dirent -> d_name))
                 error_found("check_WebServer_images: Error resizing images\n");
-
-            /*            char command[DIM * 2];
-            memset(command, (int) '\0', DIM * 2);
-            sprintf(source_image_path, "%s/%s", images_path, ent -> d_name);
-            sprintf(resized_image_path, "%s/%s", resized_tmp_dir, ent -> d_name);
-            sprintf(command, convert, source_image_path, perc, resized_image_path);
-
-            if (system(command))
-                error_found("check_image: Error resizing images\n");*/
 
             //in source_image_path there in no / because is already in images_path
             sprintf(source_image_path, "%s%s", images_path, dirent -> d_name);
@@ -666,9 +388,9 @@ void check_WebServer_images(int perc) {
             error_found("check_WebServer_images: Checking images: Error in realloc\n");
         memset(html + new_header_length, (int) '\0', (size_t) images_number * DIM - new_header_length);
     }
-    k = html;
-    k += strlen(html);
-    strcpy(k, html_header);
+    char_ptr = html;
+    char_ptr += strlen(html);
+    strcpy(char_ptr, html_header);
 
     HTML_PAGES[0] = html;
 
@@ -676,24 +398,6 @@ void check_WebServer_images(int perc) {
         error_found("check_WebServer_images: Error in closedir\n");
 
     fprintf(stdout, "-Images resized in: '%s' with percentage: %d%%\n", resized_tmp_dir, perc);
-}
-
-// Used to map in memory HTML_PAGES files which respond with
-//  error 400 or error 404
-void build_error_pages(char **HTML) {
-
-    char *s = "<!DOCTYPE HTML_PAGES PUBLIC \"-//IETF//DTD HTML_PAGES 2.0//EN\"><html><head><title>%s</title></head><body><h1>%s</h1><p>%s</p></body></html>\0";
-    size_t len = strlen(s) + 2 * DIM2 * sizeof(char);
-
-    char *not_found_404 = malloc(len);
-    char *bad_request_400 = malloc(len);
-    if (!not_found_404 || !bad_request_400)
-        error_found("Error in malloc\n");
-    memset(not_found_404, (int) '\0', len); memset(bad_request_400, (int) '\0', len);
-    sprintf(not_found_404, s, "404 Not Found", "404 Not Found", "The requested URL is not on this server.");
-    sprintf(bad_request_400, s, "400 Bad Request", "Bad Request", "Your browser sent a request this server could not understand.");
-    HTML[1] = not_found_404;
-    HTML[2] = bad_request_400;
 }
 
 /*takes 9 arguments: argc, argv, 3 mutex, 3 condition and a pointer toa threads_sync_struct struct.
@@ -767,11 +471,6 @@ void init(int argc, char **argv, pthread_mutex_t *mtx_sync_conditions, pthread_m
 
     errno = 0;
 
-/*    if (chmod(resized_tmp_dir, 777) || chmod(cache_tmp_dir, 777)) {
-        //fprintf(stderr, "%d\n", errno);
-        error_found("Error giving permission to directory");
-    }*/
-
     if (CACHE_COUNTER > 0) {
         fprintf(stdout, "-Cache size: %d; located in '%s'\n", CACHE_COUNTER, cache_tmp_dir);
     } else {
@@ -783,98 +482,8 @@ void init(int argc, char **argv, pthread_mutex_t *mtx_sync_conditions, pthread_m
     build_error_pages(HTML_PAGES);
 }
 
-// Used to remove file from file system
-void remove_link(char *path) {
-
-    //removes the name from FS, if it was the last occurrence file is deleted
-    if (unlink(path)) {
-        errno = 0;
-        switch (errno) {
-            case EBUSY:
-                error_found("remove_link: File cannot be unlinked: It is being used by the system\n");
-
-            case EIO:
-                error_found("remove_link: File cannot be unlinked: An I/O error occurred\n");
-
-            case ENAMETOOLONG:
-                error_found("remove_link: File cannot be unlinked: Pathname too long\n");
-
-            case ENOMEM:
-                error_found("remove_link: File cannot be unlinked: Insufficient kernel memory\n");
-
-            case EPERM:
-                error_found("remove_link: File cannot be unlinked: The file system does not allow unlinking of files\n");
-
-            case EROFS:
-                error_found("remove_link: File cannot be unlinked: File is read-only\n");
-
-            default:
-                error_found("remove_link: File cannot be unlinked: Error unlinking\n");
-        }
-    }
-}
-
-// Used to remove directory from file system
-void remove_directory(char *directory) {
-
-    DIR *dir;
-    struct dirent *dirent;
-
-    fprintf(stdout, "-Removing '%s'\n", directory);
-    char *verify = strrchr(directory, '/') + 1;
-    //NULL if / is not found
-    if (!verify)
-        error_found("remove_directory: Unexpected error in strrchr\n");
-    verify = strrchr(directory, '.') + 1;
-    //not a thing we want to remove
-    if (!strncmp(verify, "XXXXXX", 7))
-        return;
-
-    errno = 0;
-    dir = opendir(directory);
-    if (!dir) {
-        if (errno == EACCES)
-            error_found("remove_directory: Permission denied\n");
-        error_found("remove_directory: Error in opendir\n");
-    }
-
-    while ((dirent = readdir(dir)) != NULL) {
-        //deletes all files in directory
-        if (dirent -> d_type == DT_REG) {
-            char buf[DIM];
-            memset(buf, (int) '\0', DIM);
-            sprintf(buf, "%s/%s", directory, dirent -> d_name);
-            fprintf(stderr, "%s\n", dirent ->d_name);
-            remove_link(buf);
-        }
-    }
-
-    if (closedir(dir))
-        error_found("remove_directory: Error in closedir\n");
-
-    errno = 0;
-    if (rmdir(directory)) {
-        switch (errno) {
-            case EBUSY:
-                error_found("remove_directory: Directory not removed: Resource busy\n");
-
-            case ENOMEM:
-                error_found("remove_directory: Directory not removed: Insufficient kernel memory\n");
-
-            case EROFS:
-                error_found("remove_directory: Directory not removed: Directory is read-only\n");
-
-            case ENOTEMPTY:
-                error_found("remove_directory: Directory not removed: Directory not empty\n");
-
-            default:
-                error_found("remove_directory: Error in rmdir\n");
-        }
-    }
-}
-
 // Used to free memory allocated from malloc/realloc functions
-void free_memory() {   //TODO i'm here
+void free_memory() {
 
     free(HTML_PAGES[0]);
     free(HTML_PAGES[1]);
@@ -882,12 +491,12 @@ void free_memory() {   //TODO i'm here
     free(thread_struct.client_socket_list);
     free(thread_struct.threads_cond_list);
     //CACHE_COUNTER can't be 0
-    if (CACHE_COUNTER >= 0 && thread_struct.cached_name_list_head && thread_struct.cached_name_list_tail) {
-        struct cached_name_list_element *to_be_removed;
+    if (CACHE_COUNTER >= 0 && thread_struct.cached_name_head && thread_struct.cached_name_tail) {
+        struct cached_name_element *to_be_removed;
         //till tail is NULL
-        while (thread_struct.cached_name_list_tail) {
-            to_be_removed = thread_struct.cached_name_list_tail;
-            thread_struct.cached_name_list_tail = thread_struct.cached_name_list_tail->next_cached_image_name;
+        while (thread_struct.cached_name_tail) {
+            to_be_removed = thread_struct.cached_name_tail;
+            thread_struct.cached_name_tail = thread_struct.cached_name_tail->next_cached_image_name;
             free(to_be_removed);
         }
     }
@@ -978,40 +587,6 @@ void *catch_user_command(void *arg) {
             printf("%s\n\n", user_command);
         }
     }
-}
-
-void create_thread(void *(*routine)(void *), void *arg) {
-
-    pthread_t tid;
-    errno = 0;
-    if (pthread_create(&tid, NULL, routine, arg) != 0) {
-        if (errno == EAGAIN || errno == ENOMEM)
-            error_found("create_thread: Insufficient resources to create another thread\n");
-        else
-            error_found("create_thread: Error in pthread_create\n");
-    }
-}
-
-// Initialize threads
-void initialize_thread(int threads_to_create, void *(*routine)(void *), void *arg) {
-
-    struct threads_sync_struct *threads_sync_struct = (struct threads_sync_struct *) arg;
-
-    int i, j;
-    lock(threads_sync_struct -> mtx_sync_conditions);
-    for (i = j = 0; i < threads_to_create && j < MAX_CONNECTION; ++j) {
-        // -1 := slot with thread initialized; -2 := empty slot.
-        if (threads_sync_struct -> client_socket_list[j] == -2) {
-            threads_sync_struct -> client_socket_element = j;
-            create_thread(routine, arg);
-
-            threads_sync_struct -> client_socket_list[j] = -3;
-            wait_t(threads_sync_struct -> th_start, threads_sync_struct -> mtx_sync_conditions);
-            ++i;
-        }
-    }
-    threads_sync_struct -> active_threads += threads_to_create;
-    unlock(threads_sync_struct -> mtx_sync_conditions);
 }
 
 /*
@@ -1605,33 +1180,6 @@ void *manage_connection(void *arg) {
         signal_t(threads_sync_struct -> server_full);
     }
     pthread_exit(EXIT_SUCCESS);
-}
-
-
-/*
- * Used to create other threads
- * in the case in which the server load is rising
- */
-void spawn_thread(struct threads_sync_struct *threads_sync_struct) {
-
-    /*
-     * Threads are created dynamically in need with the number of connections.
-     * If the number of connections decreases, the number of active threads
-     * is reduced in a phased manner so as to cope with a possible peak of connections.
-     */
-    if (threads_sync_struct -> connections >= threads_sync_struct -> min_active_threads_treshold * 2 / 3 &&
-        threads_sync_struct -> active_threads <= threads_sync_struct -> min_active_threads_treshold) {
-        int n_th;
-        if (threads_sync_struct -> min_active_threads_treshold + MIN_THREAD_TRESHOLD / 2 <= MAX_CONNECTION) {
-            n_th = MIN_THREAD_TRESHOLD / 2;
-        } else {
-            n_th = MAX_CONNECTION - threads_sync_struct -> min_active_threads_treshold;
-        }
-        if (n_th) {
-            threads_sync_struct -> min_active_threads_treshold += n_th;
-            initialize_thread(n_th, manage_connection, threads_sync_struct);
-        }
-    }
 }
 
 /*
