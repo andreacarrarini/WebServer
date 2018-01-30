@@ -70,6 +70,12 @@ char *get_image(char *image_name, size_t image_dim, char *directory);
 
 void exit_on_error(char *error);
 
+void initialize_thread(int threads_to_create, void *(*routine)(void *), void *arg);
+
+void spawn_thread(struct threads_sync_struct *threads_sync_struct);
+
+void *manage_connection(void *arg);
+
 void remove_link(char *path);
 
 void remove_directory(char *directory);
@@ -114,14 +120,50 @@ void build_img_struct(struct image_struct **img, char *path);
 
 void get_command_line_options(int argc, char **argv, char **path);
 
-void check_and_build(char *s, char **html, size_t *dim);
+void check_and_build(char *image_name, char **html, size_t *dim);
 
 void check_WebServer_images(int perc);
 
 void kill_thread(struct threads_sync_struct *threads_sync_struct);
 
-/*
- * commento di prova
- */
+void *main_thread_work(void *arg);
+
+void *manage_connection(void *arg);
+
+void respond(int socket_fd, struct sockaddr_in client_address);
+
+int manage_response(int socket_fd, char **HTTP_message_fields);
+
+int get_quality(char *HTTP_header_access_field);
+
+ssize_t send_HTTP_message(int socket_fd, char *msg_to_send, ssize_t msg_dim);
+
+void split_HTTP_message(char *HTTP_request_buffer, char **line_request);
+
+void *catch_user_command(void *arg);
+
+void free_memory();
+
+void init(int argc, char **argv, pthread_mutex_t *mtx_sync_conditions, pthread_mutex_t *mtx_cache_access,
+          pthread_mutex_t *mtx_thread_conn_number, pthread_cond_t *th_start, pthread_cond_t *full,
+          struct threads_sync_struct *d);
+
+void check_WebServer_images(int perc);
+
+void build_img_struct(struct image_struct **img, char *path);
+
+void check_and_build(char *image_name, char **html, size_t *dim);
+
+void start_WebServer(void);
+
+void get_command_line_options(int argc, char **argv, char **path);
+
+void user_usage(const char *c);
+
+char *get_time(void);
+
+void write_on_stream(char *string, FILE *file);
+
+
 
 #endif //WEBSERVER_FUNCTIONS_H

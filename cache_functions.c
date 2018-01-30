@@ -10,21 +10,21 @@ struct threads_sync_struct thread_struct;
 
 void look_for_cached_img(int CACHE_COUNTER, char *name_cached_img) {
 
-    if (CACHE_COUNTER >= 0 && strncmp(thread_struct.cached_name_list_head->cache_name,
+    if (CACHE_COUNTER >= 0 && strncmp(thread_struct.cached_name_head->cache_name,
                                 name_cached_img, strlen(name_cached_img))) {
-        struct cached_name_list_element *prev_element, *element;
+        struct cached_name_element *prev_element, *element;
         prev_element = NULL;
-        element = thread_struct.cached_name_list_tail;
+        element = thread_struct.cached_name_tail;
         while (element) {
             if (!strncmp(element->cache_name, name_cached_img, strlen(name_cached_img))) {
                 if (prev_element) {
                     prev_element->next_cached_image_name = element->next_cached_image_name;
                 } else {
-                    thread_struct.cached_name_list_tail = thread_struct.cached_name_list_tail->next_cached_image_name;
+                    thread_struct.cached_name_tail = thread_struct.cached_name_tail->next_cached_image_name;
                 }
-                element->next_cached_image_name = thread_struct.cached_name_list_head->next_cached_image_name;
-                thread_struct.cached_name_list_head->next_cached_image_name = element;
-                thread_struct.cached_name_list_head = thread_struct.cached_name_list_head->next_cached_image_name;
+                element->next_cached_image_name = thread_struct.cached_name_head->next_cached_image_name;
+                thread_struct.cached_name_head->next_cached_image_name = element;
+                thread_struct.cached_name_head = thread_struct.cached_name_head->next_cached_image_name;
                 break;
             }
             prev_element = element;
@@ -49,13 +49,13 @@ int free_cache_slot(struct image_struct *image, char *char_time, char *HTTP_resp
     struct cache_struct *cache_ptr;
     struct cache_struct *cache_prev = NULL;
 
-    char *qualiy_ptr = strrchr(thread_struct.cached_name_list_tail->cache_name, '_');
+    char *qualiy_ptr = strrchr(thread_struct.cached_name_tail->cache_name, '_');
 
     //ext is the "_quality" of the resized img
     size_t quality = strlen(qualiy_ptr);
     char image_name[DIM / 2];
     memset(image_name, (int) '\0', DIM / 2);
-    strncpy(image_name, thread_struct.cached_name_list_tail->cache_name, strlen(thread_struct.cached_name_list_tail->cache_name) - quality);
+    strncpy(image_name, thread_struct.cached_name_tail->cache_name, strlen(thread_struct.cached_name_tail->cache_name) - quality);
 
     /*
      * image_ptr scans the image_struct linked list
@@ -66,8 +66,8 @@ int free_cache_slot(struct image_struct *image, char *char_time, char *HTTP_resp
             cache_ptr = image_ptr->cached_image;
 
             while (cache_ptr) {
-                if (!strncmp(cache_ptr->cached_name, thread_struct.cached_name_list_tail->cache_name,
-                             strlen(thread_struct.cached_name_list_tail->cache_name))) {
+                if (!strncmp(cache_ptr->cached_name, thread_struct.cached_name_tail->cache_name,
+                             strlen(thread_struct.cached_name_tail->cache_name))) {
                     if (!cache_prev)
                         image_ptr->cached_image = cache_ptr->next_cached_image;
                     else
@@ -106,8 +106,8 @@ int free_cache_slot(struct image_struct *image, char *char_time, char *HTTP_resp
      * updating cached_name tail and head
      */
 
-    struct cached_name_list_element *to_be_removed = thread_struct.cached_name_list_tail;
-    thread_struct.cached_name_list_tail = thread_struct.cached_name_list_tail->next_cached_image_name;
+    struct cached_name_element *to_be_removed = thread_struct.cached_name_tail;
+    thread_struct.cached_name_tail = thread_struct.cached_name_tail->next_cached_image_name;
     free(to_be_removed);
     return 0;
 }
@@ -116,7 +116,7 @@ int delete_image(char *image_to_send, char *char_time, char *HTTP_response) {
 
     char name_to_remove[DIM / 2];
     memset(name_to_remove, (int) '\0', DIM / 2);
-    sprintf(name_to_remove, "%s/%s", cache_tmp_dir, thread_struct.cached_name_list_tail->cache_name);
+    sprintf(name_to_remove, "%s/%s", cache_tmp_dir, thread_struct.cached_name_tail->cache_name);
 
     DIR *dir;
     struct dirent *dirent;
@@ -139,8 +139,8 @@ int delete_image(char *image_to_send, char *char_time, char *HTTP_response) {
 
     while ((dirent = readdir(dir)) != NULL) {
         if (dirent->d_type == DT_REG) {
-            if (!strncmp(dirent->d_name, thread_struct.cached_name_list_tail->cache_name,
-                         strlen(thread_struct.cached_name_list_tail->cache_name))) {
+            if (!strncmp(dirent->d_name, thread_struct.cached_name_tail->cache_name,
+                         strlen(thread_struct.cached_name_tail->cache_name))) {
 
                 remove_link(name_to_remove);
                 break;
@@ -210,8 +210,8 @@ int insert_in_cache(char *path, int quality_factor, char *name_cached_img, struc
 
     if (CACHE_COUNTER != -1) {
 
-        struct cached_name_list_element *new_cached_name_element = malloc(sizeof(struct cached_name_list_element));
-        memset(new_cached_name_element, (int) '\0', sizeof(struct cached_name_list_element));
+        struct cached_name_element *new_cached_name_element = malloc(sizeof(struct cached_name_element));
+        memset(new_cached_name_element, (int) '\0', sizeof(struct cached_name_element));
         if (!new_cached_name_element) {
             fprintf(stderr, "insert_in_cache: Error in malloc\n");
             free_time_HTTP_response(char_time, HTTP_repsonse);
@@ -221,15 +221,15 @@ int insert_in_cache(char *path, int quality_factor, char *name_cached_img, struc
 
 
         strncpy(new_cached_name_element->cache_name, name_cached_img, strlen(name_cached_img));
-        if (!thread_struct.cached_name_list_head && !thread_struct.cached_name_list_tail) {
-            new_cached_name_element->next_cached_image_name = thread_struct.cached_name_list_head;
-            thread_struct.cached_name_list_tail = thread_struct.cached_name_list_head = new_cached_name_element;
+        if (!thread_struct.cached_name_head && !thread_struct.cached_name_tail) {
+            new_cached_name_element->next_cached_image_name = thread_struct.cached_name_head;
+            thread_struct.cached_name_tail = thread_struct.cached_name_head = new_cached_name_element;
         }
             //inserting new_cached_name_element by the head
         else {
-            new_cached_name_element->next_cached_image_name = thread_struct.cached_name_list_head->next_cached_image_name;
-            thread_struct.cached_name_list_head->next_cached_image_name = new_cached_name_element;
-            thread_struct.cached_name_list_head = thread_struct.cached_name_list_head->next_cached_image_name;
+            new_cached_name_element->next_cached_image_name = thread_struct.cached_name_head->next_cached_image_name;
+            thread_struct.cached_name_head->next_cached_image_name = new_cached_name_element;
+            thread_struct.cached_name_head = thread_struct.cached_name_head->next_cached_image_name;
         }
     }
     return 0;
