@@ -14,11 +14,11 @@ char *search_file(struct image_struct *image, char *name_cached_img, char *img_t
     if (!dir) {
         if (errno == EACCES) {
             fprintf(stderr, "search_file: Error in opendir: Permission denied\n");
-            free_time_http(char_time, http_response);
+            free_time_HTTP_response(char_time, http_response);
             return NULL;
         }
         fprintf(stderr, "search_file: Error in opendir\n");
-        free_time_http(char_time, http_response);
+        free_time_HTTP_response(char_time, http_response);
         return NULL;
     }
 
@@ -34,7 +34,7 @@ char *search_file(struct image_struct *image, char *name_cached_img, char *img_t
                         img_to_send = get_image(name_cached_img, cache_ptr->cached_image_size, cache_tmp_dir);
                         if (!img_to_send) {
                             fprintf(stderr, "search_file: Error in get_image\n");
-                            free_time_http(char_time, http_response);
+                            free_time_HTTP_response(char_time, http_response);
                             return NULL;
                         }
                         break;
@@ -48,7 +48,7 @@ char *search_file(struct image_struct *image, char *name_cached_img, char *img_t
     if (closedir(dir)) {
         fprintf(stderr, "search_file: Error in closedir\n");
         free(img_to_send);
-        free_time_http(char_time, http_response);
+        free_time_HTTP_response(char_time, http_response);
         return NULL;
     }
     return img_to_send;
@@ -65,11 +65,11 @@ char *search_file_resized(struct image_struct *image, char *name_resized_image, 
     if (!dir) {
         if (errno == EACCES) {
             fprintf(stderr, "search_file_resized: Error in opendir: Permission denied\n");
-            free_time_http(char_time, http_response);
+            free_time_HTTP_response(char_time, http_response);
             return NULL;
         }
         fprintf(stderr, "search_file_resized: Error in opendir\n");
-        free_time_http(char_time, http_response);
+        free_time_HTTP_response(char_time, http_response);
         return NULL;
     }
 
@@ -94,7 +94,7 @@ char *search_file_resized(struct image_struct *image, char *name_resized_image, 
 
                 if (!img_to_send) {
                     fprintf(stderr, "search_file_resized: Error in get_image\n");
-                    free_time_http(char_time, http_response);
+                    free_time_HTTP_response(char_time, http_response);
                     return NULL;
                 }
                 break;
@@ -105,7 +105,7 @@ char *search_file_resized(struct image_struct *image, char *name_resized_image, 
     if (closedir(dir)) {
         fprintf(stderr, "search_file_resized: Error in closedir\n");
         free(img_to_send);
-        free_time_http(char_time, http_response);
+        free_time_HTTP_response(char_time, http_response);
         return NULL;
     }
 

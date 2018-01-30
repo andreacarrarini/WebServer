@@ -14,7 +14,7 @@ cached image_struct format is: %s_%d
 
 connsockFD values: (or client_socket_list[i])
         -1 -> thread ready for incoming connections
-        -2 -> thread killed by kill_th function or thread not yet created
+        -2 -> thread killed by kill_thread function or thread not yet created
         -3 -> newly created thread
         >0 -> connection oriented socket file descriptor
 

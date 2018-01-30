@@ -1182,7 +1182,7 @@ int manage_response(int socket_fd, char **HTTP_message_fields) {
 
         if (send_HTTP_message(socket_fd, http_response, strlen(http_response)) == -1) {
             fprintf(stderr, "Error while sending data to client\n");
-            free_time_http(time, http_response);
+            free_time_HTTP_response(time, http_response);
             return -1;
         }
         return 0;
@@ -1199,7 +1199,7 @@ int manage_response(int socket_fd, char **HTTP_message_fields) {
 
         if (send_HTTP_message(socket_fd, http_response, strlen(http_response)) == -1) {
             fprintf(stderr, "Error while sending data to client\n");
-            free_time_http(time, http_response);
+            free_time_HTTP_response(time, http_response);
             return -1;
         }
     }
@@ -1242,7 +1242,7 @@ int manage_response(int socket_fd, char **HTTP_message_fields) {
                         //image_to_send = get_image(image_name, i->resized_image_size, favicon ? resized_tmp_dir : images_path);
                         if (!image_to_send) {
                             fprintf(stderr, "manage_response: Error in get_image\n");
-                            free_time_http(time, http_response);
+                            free_time_HTTP_response(time, http_response);
                             return -1;
                         }
                     }
@@ -1301,14 +1301,14 @@ int manage_response(int socket_fd, char **HTTP_message_fields) {
 
                             if (resize_image(images_path, image_name, quality_factor, cache_tmp_dir, name_cached_image)) {
                                 fprintf(stderr, "manage_response: error in resize_image\n");
-                                free_time_http(time, http_response);
+                                free_time_HTTP_response(time, http_response);
                                 unlock(thread_struct.mtx_cache_access);
                                 return -1;
                             }
 
                             if (insert_in_cache(path, quality_factor, name_cached_image, image, time, http_response)) {
                                 fprintf(stderr, "manage_response: error in insert_in_cache\n");
-                                free_time_http(time, http_response);
+                                free_time_HTTP_response(time, http_response);
                                 unlock(thread_struct.mtx_cache_access);
                                 return -1;
                             }
@@ -1326,28 +1326,28 @@ int manage_response(int socket_fd, char **HTTP_message_fields) {
                              */
                             if (delete_image(image_to_send, time, http_response) != 0) {
                                 fprintf(stderr, "manage_response: error in delete_image\n");
-                                free_time_http(time, http_response);
+                                free_time_HTTP_response(time, http_response);
                                 unlock(thread_struct.mtx_cache_access);
                                 return -1;
                             }
 
                             if (resize_image(images_path, image_name, quality_factor, cache_tmp_dir, name_cached_image)) {
                                 fprintf(stderr, "manage_response: error in resize_image\n");
-                                free_time_http(time, http_response);
+                                free_time_HTTP_response(time, http_response);
                                 unlock(thread_struct.mtx_cache_access);
                                 return -1;
                             }
                             //freeing a cache_struct slot
                             if (free_cache_slot(first_image, time, http_response)) {
                                 fprintf(stderr, "manage_response: error in free_cache_slot\n");
-                                free_time_http(time, http_response);
+                                free_time_HTTP_response(time, http_response);
                                 unlock(thread_struct.mtx_cache_access);
                                 return -1;
                             }
 
                             if (insert_in_cache(path, quality_factor, name_cached_image, image, time, http_response)) {
                                 fprintf(stderr, "manage_response: error in insert_in_cache\n");
-                                free_time_http(time, http_response);
+                                free_time_HTTP_response(time, http_response);
                                 unlock(thread_struct.mtx_cache_access);
                                 return -1;
                             }
@@ -1359,13 +1359,13 @@ int manage_response(int socket_fd, char **HTTP_message_fields) {
 
                             if (resize_image(images_path, image_name, quality_factor, cache_tmp_dir, name_cached_image)) {
                                 fprintf(stderr, "manage_response: error in resize_image\n");
-                                free_time_http(time, http_response);
+                                free_time_HTTP_response(time, http_response);
                                 unlock(thread_struct.mtx_cache_access);
                                 return -1;
                             }
                             if (insert_in_cache(path, quality_factor, name_cached_image, image, time, http_response)) {
                                 fprintf(stderr, "manage_response: error in insert_in_cache\n");
-                                free_time_http(time, http_response);
+                                free_time_HTTP_response(time, http_response);
                                 unlock(thread_struct.mtx_cache_access);
                                 return -1;
                             }
@@ -1379,7 +1379,7 @@ int manage_response(int socket_fd, char **HTTP_message_fields) {
                         image_to_send = search_file(image, name_cached_image, image_to_send, cache_struct, time, http_response);
                         if (!image_to_send) {
                             fprintf(stderr, "manage_response: Error in get_image\n");
-                            free_time_http(time, http_response);
+                            free_time_HTTP_response(time, http_response);
                             return -1;
                         }
                     }
@@ -1394,7 +1394,7 @@ int manage_response(int socket_fd, char **HTTP_message_fields) {
                         http_response = realloc(http_response, (http_response_header_size + image_to_send_size) * sizeof(char));
                         if (!http_response) {
                             fprintf(stderr, "manage_response: Error in realloc\n");
-                            free_time_http(time, http_response);
+                            free_time_HTTP_response(time, http_response);
                             free(image_to_send);
                             return -1;
                         }
@@ -1411,7 +1411,7 @@ int manage_response(int socket_fd, char **HTTP_message_fields) {
 
                 if (send_HTTP_message(socket_fd, http_response, http_response_header_size) == -1) {
                     fprintf(stderr, "manage_response: Error while sending data to client\n");
-                    free_time_http(time, http_response);
+                    free_time_HTTP_response(time, http_response);
                     return -1;
                 }
                 free(image_to_send);
@@ -1431,12 +1431,12 @@ int manage_response(int socket_fd, char **HTTP_message_fields) {
 
             if (send_HTTP_message(socket_fd, http_response, strlen(http_response)) == -1) {
                 fprintf(stderr, "manage_response: Error while sending data to client\n");
-                free_time_http(time, http_response);
+                free_time_HTTP_response(time, http_response);
                 return -1;
             }
         }
     }
-    free_time_http(time, http_response);
+    free_time_HTTP_response(time, http_response);
     return 0;
 }
 
@@ -1552,7 +1552,7 @@ void *manage_connection(void *arg) {
         /*
          * socket_fd values:
          *      -1 -> thread ready for incoming connections
-         *      -2 -> thread killed by kill_th function or thread not yet created
+         *      -2 -> thread killed by kill_thread function or thread not yet created
          *      -3 -> newly created thread
          *      >0 -> connection oriented socket file descriptor
          */
@@ -1600,7 +1600,7 @@ void *manage_connection(void *arg) {
         }
         lock(threads_sync_struct -> mtx_thread_conn_number);
         --threads_sync_struct -> connections;
-        kill_th(threads_sync_struct);
+        kill_thread(threads_sync_struct);
         threads_sync_struct -> client_socket_list[client_socket_element] = -1;
         signal_t(threads_sync_struct -> server_full);
     }
