@@ -673,7 +673,7 @@ ssize_t send_HTTP_message(int socket_fd, char *msg_to_send, ssize_t msg_dim) {
 /*
  * Find q factor from Accept header
  * Return values: -1 --> error
- *                -2 --> factor get_quality not specified in the header
+ *                -2 --> factor quality not specified in the header
  * NOTE: This server DOES NOT consider the extensions of the images,
  * so this function will analyze the resource type and NOT the subtype.
  */

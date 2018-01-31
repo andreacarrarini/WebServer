@@ -85,7 +85,7 @@ char *get_image(char *image_name, size_t image_dim, char *directory) {
                 break;
 
             default:
-                fprintf(stderr, "Error in get_image\n");
+                fprintf(stderr, "get_image: Error in get_image\n");
         }
         return NULL;
     }
