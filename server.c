@@ -1177,6 +1177,9 @@ void *manage_connection(void *arg) {
         --threads_sync_struct -> connections;
         kill_thread(threads_sync_struct);
         threads_sync_struct -> client_socket_list[client_socket_element] = -1;
+        /*
+         * signals main thread that server is no more full
+         */
         signal_t(threads_sync_struct -> server_full);
     }
     pthread_exit(EXIT_SUCCESS);

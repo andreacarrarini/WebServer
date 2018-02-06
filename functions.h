@@ -68,8 +68,6 @@ void write_on_stream(char *string, FILE *file);
 
 char *get_image(char *image_name, size_t image_dim, char *directory);
 
-void exit_on_error(char *error);
-
 void initialize_thread(int threads_to_create, void *(*routine)(void *), void *arg);
 
 void spawn_thread(struct threads_sync_struct *threads_sync_struct);
