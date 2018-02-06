@@ -55,7 +55,7 @@ void spawn_thread(struct threads_sync_struct *threads_sync_struct) {
      * If the number of connections decreases, the number of active threads
      * is reduced in a phased manner so as to cope with a possible peak of connections.
      */
-    if (threads_sync_struct -> connections >= threads_sync_struct -> min_active_threads_treshold * 2 / 3 &&
+    if (threads_sync_struct -> connections >= threads_sync_struct -> min_active_threads_treshold * 3 / 4 &&
         threads_sync_struct -> active_threads <= threads_sync_struct -> min_active_threads_treshold) {
         int n_th;
         if (threads_sync_struct -> min_active_threads_treshold + MIN_THREAD_TRESHOLD / 2 <= MAX_CONNECTION) {
@@ -126,7 +126,7 @@ void kill_thread(struct threads_sync_struct *threads_sync_struct) {
     int threads_number = 0;
 
     if (threads_sync_struct -> min_active_threads_treshold > MIN_THREAD_TRESHOLD) {
-        int old_thread = (threads_sync_struct -> min_active_threads_treshold - MIN_THREAD_TRESHOLD / 2) * 2 / 3;
+        int old_thread = (threads_sync_struct -> min_active_threads_treshold - MIN_THREAD_TRESHOLD / 2) * 3 / 4;
         // To bring system to the default thread count
         if (!threads_sync_struct -> connections) {
             threads_sync_struct -> min_active_threads_treshold = MIN_THREAD_TRESHOLD;
