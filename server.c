@@ -973,7 +973,7 @@ int manage_response(int socket_fd, char **HTTP_message_fields) {
 
                 } //END if looking in cache_struct
 
-                sprintf(http_response, HTTP_header, 200, "OK", time, server_name, "image_struct/gif", image_to_send_size, "keep-alive");
+                sprintf(http_response, HTTP_header, 200, "OK", time, server_name, "image/gif", image_to_send_size, "keep-alive");
                 ssize_t http_response_header_size = (size_t) strlen(http_response);
                 if (strncmp(HTTP_message_fields[0], "HEAD", 4)) {
                     if (http_response_header_size + image_to_send_size > DIM * DIM * 2) {
