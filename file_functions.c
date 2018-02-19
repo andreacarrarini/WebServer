@@ -146,4 +146,65 @@ void remove_link(char *path) {
     }
 }
 
+/*
+ * Used to remove directory from file system
+ */
+void remove_directory(char *directory) {
+
+    DIR *dir;
+    struct dirent *dirent;
+
+    fprintf(stdout, "-Removing '%s'\n", directory);
+    char *verify = strrchr(directory, '/') + 1;
+    //NULL if / is not found
+    if (!verify)
+        error_found("remove_directory: Unexpected error in strrchr\n");
+    verify = strrchr(directory, '.') + 1;
+    //not a thing we want to remove
+    if (!strncmp(verify, "XXXXXX", 7))
+        return;
+
+    errno = 0;
+    dir = opendir(directory);
+    if (!dir) {
+        if (errno == EACCES)
+            error_found("remove_directory: Permission denied\n");
+        error_found("remove_directory: Error in opendir\n");
+    }
+
+    while ((dirent = readdir(dir)) != NULL) {
+        //deletes all files in directory
+        if (dirent -> d_type == DT_REG) {
+            char buf[DIM];
+            memset(buf, (int) '\0', DIM);
+            sprintf(buf, "%s/%s", directory, dirent -> d_name);
+            fprintf(stderr, "%s\n", dirent ->d_name);
+            remove_link(buf);
+        }
+    }
+
+    if (closedir(dir))
+        error_found("remove_directory: Error in closedir\n");
+
+    errno = 0;
+    if (rmdir(directory)) {
+        switch (errno) {
+            case EBUSY:
+                error_found("remove_directory: Directory not removed: Resource busy\n");
+
+            case ENOMEM:
+                error_found("remove_directory: Directory not removed: Insufficient kernel memory\n");
+
+            case EROFS:
+                error_found("remove_directory: Directory not removed: Directory is read-only\n");
+
+            case ENOTEMPTY:
+                error_found("remove_directory: Directory not removed: Directory not empty\n");
+
+            default:
+                error_found("remove_directory: Error in rmdir\n");
+        }
+    }
+}
+
 

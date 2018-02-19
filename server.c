@@ -113,7 +113,7 @@ void get_command_line_options(int argc, char **argv, char **path) {
                 PORT = p_arg;
                 break;
 
-            //sets the log file path from the command line arguments
+                //sets the log file path from the command line arguments
             case 'l':
                 errno = 0;
                 //saves in struct stat all the info of the log file
@@ -136,7 +136,7 @@ void get_command_line_options(int argc, char **argv, char **path) {
                     path[0][strlen(path[0])] = '\0';
                 break;
 
-            //sets the file_to_send directory from the command line argument
+                //sets the file_to_send directory from the command line argument
             case 'i':
                 errno = 0;
                 if (stat(optarg, &statbuf) != 0) {
@@ -157,7 +157,7 @@ void get_command_line_options(int argc, char **argv, char **path) {
                     path[1][strlen(path[1])] = '\0';
                 break;
 
-            //sets the minimum threads in thread's pool
+                //sets the minimum threads in thread's pool
             case 't':
                 errno = 0;
                 int t_arg = (int) strtol(optarg, &k, 10);
@@ -171,7 +171,7 @@ void get_command_line_options(int argc, char **argv, char **path) {
                 t_mode = 1;
                 break;
 
-            //sets the number of maximum connections at the same char_time
+                //sets the number of maximum connections at the same char_time
             case 'c':
                 errno = 0;
                 int c_arg = (int) strtol(optarg, &k, 10);
@@ -235,7 +235,7 @@ void start_WebServer(void) {
             case EACCES:
                 error_found("start_WebServer: Choose another socket\n");
 
-            //the socket is already bound to an address
+                //the socket is already bound to an address
             case EINVAL:
                 error_found("start_WebServer: The socket is already bound to an address\n");
 
@@ -251,10 +251,9 @@ void start_WebServer(void) {
     fprintf(stdout, "-Servers socket created with number: %d\n", PORT);
 }
 
-void check_and_build(char *image_name, char **html, size_t *dim) {
+void check_and_build(char *resized_image_path, char *image_name, char **html, size_t *dim) {
 
-    char *k = "<b>%s</b><br><br><a href=\"%s\"><img src=\"\\%s\" height=\"130\" weight=\"100\"></a><br><br><br><br>";;
-    //char *k = "<b>%s</b><br><br><a href=\"%s\"></a><br><br><br><br>";;
+    char *k = "<b>%s</b><br><br><a href=\"%s\"><img src=\"\\%s\" height=\"130\" weight=\"100\"></a><br><br><br><br>";
 
     size_t len = strlen(*html);
     if (len + DIM >= *dim * DIM) {
@@ -264,8 +263,15 @@ void check_and_build(char *image_name, char **html, size_t *dim) {
             error_found("check_and_build: Error in realloc\n");
     }
 
+    /*char *w;
+    if (!(w = strrchr(resized_image_path, '/')))
+        error_found("check_and_build: unexpected error creating HTML root file\n");
+    ++w;*/
+
+    char *w = resized_image_path + strlen("/tmp/");
+
     char *q = *html + len;
-    sprintf(q, k, image_name, image_name, image_name);
+    sprintf(q, k, image_name, image_name, w);
 }
 
 // Used to fill img dynamic structure
@@ -328,8 +334,10 @@ void check_WebServer_images(int perc) {
 
     // writes a string that will be the html home page
     // %s page's title; %s header; %s text.
+
     char *html_header = "<!DOCTYPE html><html><head><meta charset=\"utf-8\" /><title>%s</title><style type=\"text/css\"></style><script type=\"text/javascript\"></script></head><body background=\"\"><h1>%s</h1><br><br><h3>%s</h3><hr><br>";
-    sprintf(html, html_header, "WebServer", "Choose an image_struct", "It will be resized for your own device!");
+
+    sprintf(html, html_header, "WebServer", "Choose an image", "It will be resized for your own device!");
     /*    // %s image_struct's path; %d resizing percentage
     char *convert = "convert %s -resize %d%% %s;exit";*/
     size_t header_length = strlen(html), new_header_length;
@@ -372,7 +380,10 @@ void check_WebServer_images(int perc) {
             sprintf(resized_image_path, "%s/%s", resized_tmp_dir, dirent -> d_name);
             build_img_struct(image, resized_image_path);
             image = &(*image) -> next_image;
-            check_and_build(dirent -> d_name, &html, &images_number);
+
+
+            //check_and_build(dirent -> d_name, &html, &images_number);
+            check_and_build(resized_image_path, dirent->d_name, &html, &images_number);
         }
     }
 
@@ -778,9 +789,9 @@ int manage_response(int socket_fd, char **HTTP_message_fields) {
             return -1;
         }
     }
-    /*
-     * where the real functions begin
-     */
+        /*
+         * where the real functions begin
+         */
     else {
         struct image_struct *image = image_struct;
         struct image_struct *first_image = image_struct;
@@ -823,7 +834,7 @@ int manage_response(int socket_fd, char **HTTP_message_fields) {
                     }
                     image_to_send_size = image->resized_image_size;
                 }
-                // Looking for image_struct in memory cache_struct
+                    // Looking for image_struct in memory cache_struct
                 else {
                     char name_cached_image[DIM / 2];
                     memset(name_cached_image, (int) '\0', sizeof(char) * DIM / 2);
@@ -1299,4 +1310,3 @@ int main(int argc, char **argv) {
     main_thread_work(&thread_struct);
     return EXIT_SUCCESS;
 }
-

@@ -118,8 +118,6 @@ void build_img_struct(struct image_struct **img, char *path);
 
 void get_command_line_options(int argc, char **argv, char **path);
 
-void check_and_build(char *image_name, char **html, size_t *dim);
-
 void check_WebServer_images(int perc);
 
 void kill_thread(struct threads_sync_struct *threads_sync_struct);
@@ -150,7 +148,7 @@ void check_WebServer_images(int perc);
 
 void build_img_struct(struct image_struct **img, char *path);
 
-void check_and_build(char *image_name, char **html, size_t *dim);
+void check_and_build(char *resized_image_path, char *image_name, char **html, size_t *dim);
 
 void start_WebServer(void);
 
