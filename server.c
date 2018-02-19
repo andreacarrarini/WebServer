@@ -74,6 +74,7 @@ void user_usage(const char *c) {
             "\t\t[-p port number]\n"
             "\t\t[-c maximum connections number]\n"
             "\t\t[-t initial threads number]\n"
+            "\t\t[-n cache size]\n"
             "\t\t[-h help]\n", c);
     exit(EXIT_SUCCESS);
 }
@@ -335,7 +336,7 @@ void check_WebServer_images(int perc) {
     // writes a string that will be the html home page
     // %s page's title; %s header; %s text.
 
-    char *html_header = "<!DOCTYPE html><html><head><meta charset=\"utf-8\" /><title>%s</title><style type=\"text/css\"></style><script type=\"text/javascript\"></script></head><body background=\"\"><h1>%s</h1><br><br><h3>%s</h3><hr><br>";
+    char *html_header = "<!DOCTYPE html><html><head><meta charset=\"utf-8\" /><title>%s</title><style type=\"text/css\"></style><script type=\"text/javascript\"></script></head><body background=\"\"><h1>%s</h1><h3>%s</h3><hr><br>";
 
     sprintf(html, html_header, "WebServer", "Choose an image", "It will be resized for your own device!");
     /*    // %s image_struct's path; %d resizing percentage
@@ -1295,7 +1296,7 @@ void *main_thread_work(void *arg) {
 
 int main(int argc, char **argv) {
 
-    if (argc > 11) {
+    if (argc > 13) {
         fprintf(stderr, "main: Too many arguments\n\n");
         user_usage(*argv);
     }
