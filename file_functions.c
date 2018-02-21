@@ -22,6 +22,7 @@ char *search_file(struct image_struct *image, char *name_cached_img, char *img_t
         return NULL;
     }
 
+
     //finding the requested image_struct
 
     while ((dirent = readdir(dir)) != NULL) {
@@ -54,9 +55,6 @@ char *search_file(struct image_struct *image, char *name_cached_img, char *img_t
     return img_to_send;
 }
 
-// Used to get information from a file on the file system
-//  check values: 1 for check directory
-//                0 for check regular files
 void get_file_info(struct stat *stat_buf, char *path, int check) {
 
     memset(stat_buf, (int) '\0', sizeof(struct stat));
@@ -113,9 +111,6 @@ FILE *open_LOG_file(const char *path_to_LOG_dir) {
     return f;
 }
 
-/*
- * Used to remove file from file system
- */
 void remove_link(char *path) {
 
     //removes the name from FS, if it was the last occurrence file is deleted
@@ -146,9 +141,6 @@ void remove_link(char *path) {
     }
 }
 
-/*
- * Used to remove directory from file system
- */
 void remove_directory(char *directory) {
 
     DIR *dir;

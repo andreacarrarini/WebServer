@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include "functions.h"
 
-// To close the process on error
 void error_found(char *s) {
 
     fprintf(stderr, "%s", s);
@@ -15,10 +14,6 @@ void error_found(char *s) {
     exit(EXIT_FAILURE);
 }
 
-/*
- * Used to map in memory HTML_PAGES files
- * which respond with error 400 or error 404
- */
 void build_error_pages(char **HTML) {
 
     char *s = "<!DOCTYPE HTML_PAGES PUBLIC \"-//IETF//DTD HTML_PAGES 2.0//EN\"><html><head><title>%s</title></head><body><h1>%s</h1><p>%s</p></body></html>\0";

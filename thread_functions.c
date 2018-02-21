@@ -5,7 +5,6 @@
 #include "structs.h"
 #include "functions.h"
 
-// Used to block SIGPIPE sent from send function
 void catch_signal(void) {
 
     struct sigaction struct_sigaction;
@@ -15,39 +14,30 @@ void catch_signal(void) {
         error_found("catch_signal: Error in sigaction\n");
 }
 
-// Used to get mutex to access a memory
-//  area shared by multiple execution flows
 void lock(pthread_mutex_t *mutex) {
 
     if (pthread_mutex_lock(mutex) != 0)
         error_found("lock: Error in pthread_mutex_lock\n");
 }
 
-// Used to release mutex
 void unlock(pthread_mutex_t *mutex) {
 
     if (pthread_mutex_unlock(mutex) != 0)
         error_found("unlock: Error in pthread_mutex_unlock\n");
 }
 
-// Used waiting for the occurrence of an event
 void wait_t(pthread_cond_t *cond, pthread_mutex_t *mutex) {
 
     if (pthread_cond_wait(cond, mutex) != 0)
         error_found("wait_t: Error in pthread_cond_wait\n");
 }
 
-// Used to send a signal to a thread
 void signal_t(pthread_cond_t *cond) {
 
     if (pthread_cond_signal(cond) != 0)
         error_found("signal_t: Error in pthread_cond_signal\n");
 }
 
-/*
- * Used to create other threads
- * in the case in which the server load is rising
- */
 void spawn_thread(struct threads_sync_struct *threads_sync_struct) {
 
     /*
@@ -103,7 +93,6 @@ void create_thread(void *(*routine)(void *), void *arg) {
     }
 }
 
-// Used by kill_thread function
 void mark_to_kill(int threads_number, struct threads_sync_struct *threads_sync_struct) {
 
     int i, j;
@@ -120,7 +109,6 @@ void mark_to_kill(int threads_number, struct threads_sync_struct *threads_sync_s
         threads_sync_struct -> threads_to_kill = threads_number - i;
 }
 
-// Used to kill threads
 void kill_thread(struct threads_sync_struct *threads_sync_struct) {
 
     int threads_number = 0;

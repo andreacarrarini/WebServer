@@ -8,24 +8,17 @@
 struct image_struct *image_struct;
 struct threads_sync_struct thread_struct;
 
-// Log's file pointer
 FILE *LOG = NULL;
-// Pointer to html files; 1st: root, 2nd: 404, 3rd 400.
 char *HTML_PAGES[3];
 int PORT = 8080;
-//MINimum THreads
 int MIN_THREAD_TRESHOLD = 250;
 int MAX_CONNECTION = 1500;
 int LISTEN_SOCKET_DESCRIPTOR;
-//char images_path[DIM / 2];
 char images_path[DIM];
-// Number of cached images
 volatile int CACHE_COUNTER = -1;
 char resized_tmp_dir[DIM2] = "/tmp/RESIZED.XXXXXX";
-// tmp files cached
 char cache_tmp_dir[DIM2] = "/tmp/CACHE.XXXXXX";
 
-// User's command
 char *user_command = "-Enter 'q' to stop the server, "
         "'s' to know server state or "
         "'f' to force Log file write";
@@ -208,7 +201,6 @@ void get_command_line_options(int argc, char **argv, char **path) {
         error_found("get_command_line_options: maximum connections number is lower then minimum threads number!\n");
 }
 
-// Start server
 void start_WebServer(void) {
 
     struct sockaddr_in server_address;
@@ -264,18 +256,11 @@ void check_and_build(char *resized_image_path, char *image_name, char **html, si
             error_found("check_and_build: Error in realloc\n");
     }
 
-    /*char *w;
-    if (!(w = strrchr(resized_image_path, '/')))
-        error_found("check_and_build: unexpected error creating HTML root file\n");
-    ++w;*/
-
     char *w = resized_image_path + strlen("/tmp/");
-
     char *q = *html + len;
     sprintf(q, k, image_name, image_name, w);
 }
 
-// Used to fill img dynamic structure
 void build_img_struct(struct image_struct **img, char *path) {
 
     char new_path[DIM];
@@ -333,14 +318,11 @@ void check_WebServer_images(int perc) {
         error_found("check_WebServer_images: Error in malloc\n");
     memset(html, (int) '\0', (size_t) images_number * DIM * sizeof(char));
 
-    // writes a string that will be the html home page
-    // %s page's title; %s header; %s text.
-
+    /*
+     * writes a string that will be the html home page %s page's title; %s header; %s text.
+     */
     char *html_header = "<!DOCTYPE html><html><head><meta charset=\"utf-8\" /><title>%s</title><style type=\"text/css\"></style><script type=\"text/javascript\"></script></head><body background=\"\"><h1>%s</h1><h3>%s</h3><hr><br>";
-
     sprintf(html, html_header, "WebServer", "Choose an image", "It will be resized for your own device!");
-    /*    // %s image_struct's path; %d resizing percentage
-    char *convert = "convert %s -resize %d%% %s;exit";*/
     size_t header_length = strlen(html), new_header_length;
 
     struct image_struct **image = &image_struct;
@@ -353,7 +335,8 @@ void check_WebServer_images(int perc) {
         if (dirent -> d_type == DT_REG) {
             /*If a file is appended with a tilde~,
              * it only means that it is a backup created by a text editor
-             * or similar program*/
+             * or similar program
+             */
             if ((char_ptr = strrchr(dirent -> d_name, '~')) != NULL) {
                 //tilde is found
                 fprintf(stderr, "check_WebServer_images: File '%s' was skipped\n", dirent -> d_name);
@@ -381,9 +364,6 @@ void check_WebServer_images(int perc) {
             sprintf(resized_image_path, "%s/%s", resized_tmp_dir, dirent -> d_name);
             build_img_struct(image, resized_image_path);
             image = &(*image) -> next_image;
-
-
-            //check_and_build(dirent -> d_name, &html, &images_number);
             check_and_build(resized_image_path, dirent->d_name, &html, &images_number);
         }
     }
@@ -412,8 +392,6 @@ void check_WebServer_images(int perc) {
     fprintf(stdout, "-Images resized in: '%s' with percentage: %d%%\n", resized_tmp_dir, perc);
 }
 
-/*takes 9 arguments: argc, argv, 3 mutex, 3 condition and a pointer toa threads_sync_struct struct.
- * */
 void init(int argc, char **argv, pthread_mutex_t *mtx_sync_conditions, pthread_mutex_t *mtx_cache_access,
           pthread_mutex_t *mtx_thread_conn_number, pthread_cond_t *th_start, pthread_cond_t *full,
           struct threads_sync_struct *d) {
@@ -494,7 +472,6 @@ void init(int argc, char **argv, pthread_mutex_t *mtx_sync_conditions, pthread_m
     build_error_pages(HTML_PAGES);
 }
 
-// Used to free memory allocated from malloc/realloc functions
 void free_memory() {
 
     free(HTML_PAGES[0]);
@@ -517,7 +494,6 @@ void free_memory() {
     remove_directory(cache_tmp_dir);
 }
 
-// Thread which control stdin to recognize user's input
 void *catch_user_command(void *arg) {
 
     struct threads_sync_struct *threads_sync_struct = (struct threads_sync_struct *) arg;
@@ -601,16 +577,6 @@ void *catch_user_command(void *arg) {
     }
 }
 
-/*
- * Used to split HTTP message:
- *  HTTP msg type
- *  Reqested obj
- *  HTTP vers
- *  Conn
- *  User_Agent
- *  Accept type
- *  Cache-Control
- */
 void split_HTTP_message(char *HTTP_request_buffer, char **line_request) {
 
     char *HTTP_header_format[4];
@@ -659,7 +625,6 @@ void split_HTTP_message(char *HTTP_request_buffer, char **line_request) {
     }
 }
 
-// Used to send HTTP messages to client_socket_list
 ssize_t send_HTTP_message(int socket_fd, char *msg_to_send, ssize_t msg_dim) {
 
     ssize_t sent = 0;
@@ -682,13 +647,6 @@ ssize_t send_HTTP_message(int socket_fd, char *msg_to_send, ssize_t msg_dim) {
     return sent;
 }
 
-/*
- * Find q factor from Accept header
- * Return values: -1 --> error
- *                -2 --> factor quality not specified in the header
- * NOTE: This server DOES NOT consider the extensions of the images,
- * so this function will analyze the resource type and NOT the subtype.
- */
 int get_quality(char *HTTP_header_access_field) {
 
     //HTTP_header_access_field is the accept type field from http_req
@@ -705,9 +663,9 @@ int get_quality(char *HTTP_header_access_field) {
 
         if (!strncmp(token, "image_struct", strlen("image_struct"))) {
             chr = strrchr(token, '=');
-            // If not specified the 'q' value or if there was
-            //  an error in transmission, the default
-            //  value of 'q' is 1.0
+            /*
+             * If not specified the 'q' value or if there was an error in transmission, the default value of 'q' is 1.0
+             */
             if (!chr) {
                 images = 1.0;
                 break;
@@ -742,9 +700,6 @@ int get_quality(char *HTTP_header_access_field) {
     return (int) (quality *= 100);
 }
 
-/*
- * http_fields refers to documentation in split_HTTP_message function
- */
 int manage_response(int socket_fd, char **HTTP_message_fields) {
 
     char *http_response = malloc(DIM * DIM * 2);
@@ -816,9 +771,8 @@ int manage_response(int socket_fd, char **HTTP_message_fields) {
 
                 int favicon = 1;
                 /*
-                 *
+                 * Looking for resized image_struct or favicon.ico
                  */
-                // Looking for resized image_struct or favicon.ico
                 if (!strncmp(p, HTTP_message_fields[1], strlen(p) - strlen(".XXXXXX")) ||
                     !(favicon = strncmp(image_name, "favicon.ico", strlen("favicon.ico")))) {
                     if (strncmp(HTTP_message_fields[0], "HEAD", 4)) {
@@ -826,7 +780,6 @@ int manage_response(int socket_fd, char **HTTP_message_fields) {
                             image_to_send = get_image(image_name, image->resized_image_size, resized_tmp_dir);
                         else
                             image_to_send = get_image(image_name, image->resized_image_size, images_path);
-                        //image_to_send = get_image(image_name, i->resized_image_size, favicon ? resized_tmp_dir : images_path);
                         if (!image_to_send) {
                             fprintf(stderr, "manage_response: Error in get_image\n");
                             free_time_HTTP_response(time, http_response);
@@ -1027,13 +980,8 @@ int manage_response(int socket_fd, char **HTTP_message_fields) {
     return 0;
 }
 
-/*
- * Every thread execute this function to deal a connection
- * Analyzes HTTP message
- */
 void respond(int socket_fd, struct sockaddr_in client_address) {
 
-    //buffer
     char HTTP_request_buffer[DIM * DIM];
     char *line_request[7];
     ssize_t received;
@@ -1105,10 +1053,6 @@ void respond(int socket_fd, struct sockaddr_in client_address) {
     } while (line_request[3] && !strncmp(line_request[3], "keep-alive", 10));
 }
 
-/*
- * This is the routine of all threads.
- * This function is used to manage client's connection
- */
 void *manage_connection(void *arg) {
 
     //join not needed
@@ -1197,14 +1141,6 @@ void *manage_connection(void *arg) {
     pthread_exit(EXIT_SUCCESS);
 }
 
-/*
- * This is the main thread which manage all incoming connections.
- * Once a client send a request to the server, this thread checks if
- * it can process the connection or not.
- * If so, assigns the connection management to a child thread,
- * otherwise it waits on a pthread_cond_t condition,
- * until the system load is not lowered.
- * */
 void *main_thread_work(void *arg) {
 
     struct threads_sync_struct *threads_sync_struct = (struct threads_sync_struct *) arg;

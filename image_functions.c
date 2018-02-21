@@ -53,7 +53,6 @@ int resize_image(char *IMG_PATH, char *image_name, int quality, char *tmp_cache,
     return 0;
 }
 
-// Used to get image_struct from file system
 char *get_image(char *image_name, size_t image_dim, char *directory) {
 
     ssize_t left = 0;

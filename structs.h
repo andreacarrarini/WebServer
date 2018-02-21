@@ -10,7 +10,6 @@
 #define DIM 512
 #define DIM2 64
 
-// Struct to manage cache_struct hit
 /*
  * lista ordinata dei filename di tutte le immagini cachate
  * (vera e propria cache_struct)
@@ -25,57 +24,55 @@ struct cached_name_element {
  * cachate con fattori di qualita' diversi
  */
 struct cache_struct {
-    // Quality factor ///OPPURE float...
-    /*char q[5];*/
+    // Fattore di qualita'
     int quality;
-    // Name of cached image_struct format name_quality
-    //char *cached_name;
+    // Nome dell'immagine cachata in formato nome_qualita'
     char cached_name[DIM / 2];
+    // Dimensione in bytes dell'immagine cachata
     size_t cached_image_size;
+    // Puntatore alla successiva
     struct cache_struct *next_cached_image;
-    /*
-      se si vuole impl. anche cache_struct su disco
-      si deve agiungere il campo "char *img_d"
-      che rappresenta il nome del file salvato
-      su disco (se esiste)
-    */
 };
 
 struct image_struct {
-    // Name of current image_struct
+    // Nome dell'immagine originale
     char name[DIM2 * 2];
+    // Dimensione dell'immagine resizata (miniatura)
     size_t resized_image_size;
-    //pointer to cached image_struct
+    // Puntatore al primo elemento della lista di versioni cachate
     struct cache_struct *cached_image;
+    // Puntatore alla successiva
     struct image_struct *next_image;
 };
 
-// Struct which contains all variables for synchronise threads
+// Struct che contiene mutex, variabili e conditions per la sincronizzazione dei thread
 struct threads_sync_struct {
+    // Indirizzo dell'ultimo client connessosi
     struct sockaddr_in client_address;
+    // Puntatori alla testa e alla coda della lista ordinata di immagini cachate
     struct cached_name_element *cached_name_tail,
             *cached_name_head;
-    //array of connsocket descriptor
+    // Array di descrittori di socket
     int *client_socket_list;
+    // Iteratori
     volatile int client_socket_element,
             connections,
-    // thread vivi
+    // Thread vivi
             active_threads,
-    //thread treshold (soglia minima)
+    // Thread treshold (soglia minima), numero di threads da uccidere
             min_active_threads_treshold,
             threads_to_kill;
-    // To manage thread's number and connections
+    // Per gestire il numero di threads e di connessioni
     pthread_mutex_t *mtx_thread_conn_number;
-    // To manage cache_struct access
+    // Per sincronizzare l'accesso alla cache_struct
     pthread_mutex_t *mtx_cache_access;
-    // To sync pthread_condition variables
+    // Per sincronizzare le conditions
     pthread_mutex_t *mtx_sync_conditions;
-    // Array containing condition
-    // variables of all threads
+    // Array di tuttte le conditions dei threads
     pthread_cond_t *threads_cond_list;
-    // To initialize threads
+    // Per inizializzare i thread
     pthread_cond_t *th_start;
-    // Number of maximum connection reached
+    // NUmero massimo di connessioni simultanee raggiunto
     pthread_cond_t *server_full;
 };
 
